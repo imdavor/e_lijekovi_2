@@ -1,9 +1,13 @@
 package com.example.e_lijekovi_2
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class DobaDana {
     JUTRO, POPODNE, VECER
 }
 
+@Serializable
 data class Lijek(
     val id: Int,
     var naziv: String,

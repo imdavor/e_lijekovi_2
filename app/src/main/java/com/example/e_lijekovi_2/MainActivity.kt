@@ -42,10 +42,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.FloatingActionButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Context
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Settings
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,8 +59,174 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             E_lijekovi_2Theme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    PocetniEkran(modifier = Modifier.padding(innerPadding))
+                PocetniEkran(context = this)
+            }
+        }
+    }
+}
+
+@Composable
+fun PocetniEkran(context: Context? = null) {
+    val lijekovi = remember { mutableStateListOf<Lijek>() }
+    var idCounter by rememberSaveable { mutableStateOf(0) }
+    var editLijek by remember { mutableStateOf<Lijek?>(null) }
+    var showAddLijek by remember { mutableStateOf(false) }
+    var showExportImportDialog by remember { mutableStateOf(false) }
+    var showMessage by remember { mutableStateOf<String?>(null) }
+
+    // Launcher za export (kreiranje/spremanje datoteke)
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            context?.let { ctx ->
+                val success = LijekoviDataManager.saveToFile(ctx, it, lijekovi)
+                showMessage = if (success) "Podaci uspješno eksportirani!" else "Greška pri exportu!"
+            }
+        }
+    }
+
+    // Launcher za import (otvaranje datoteke)
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            context?.let { ctx ->
+                val importedLijekovi = LijekoviDataManager.loadFromFile(ctx, it)
+                if (importedLijekovi != null) {
+                    lijekovi.clear()
+                    lijekovi.addAll(importedLijekovi)
+                    // Ažuriraj idCounter da bude veći od najvećeg ID-a
+                    idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
+                    showMessage = "Podaci uspješno importirani! Učitano ${importedLijekovi.size} lijekova."
+                } else {
+                    showMessage = "Greška pri importu podataka!"
+                }
+            }
+        }
+    }
+
+    // Dijalog za poruke
+    showMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { showMessage = null },
+            title = { Text("Obavijest") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { showMessage = null }) {
+                    Text("U redu")
+                }
+            }
+        )
+    }
+
+    // Dijalog za odabir Export/Import
+    if (showExportImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportImportDialog = false },
+            title = { Text("Upravljanje podacima") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Odaberite akciju:")
+                }
+            },
+            confirmButton = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            showExportImportDialog = false
+                            exportLauncher.launch("lijekovi_backup.json")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Exportaj podatke")
+                    }
+                    Button(
+                        onClick = {
+                            showExportImportDialog = false
+                            importLauncher.launch(arrayOf("application/json"))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Importaj podatke")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportImportDialog = false }) {
+                    Text("Odustani")
+                }
+            }
+        )
+    }
+
+    when {
+        editLijek != null -> {
+            EditLijekaEkran(
+                lijek = editLijek!!,
+                onSpremi = {
+                    editLijek = null
+                },
+                onOdustani = { editLijek = null }
+            )
+        }
+        showAddLijek -> {
+            DodajLijekEkran(
+                onDodaj = { naziv, dobaDana, pakiranje, trenutnoStanje ->
+                    lijekovi.add(
+                        Lijek(
+                            id = idCounter++,
+                            naziv = naziv,
+                            dobaDana = dobaDana,
+                            pakiranje = pakiranje,
+                            trenutnoStanje = trenutnoStanje
+                        )
+                    )
+                    showAddLijek = false
+                },
+                onOdustani = { showAddLijek = false }
+            )
+        }
+        else -> {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                floatingActionButton = {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FloatingActionButton(
+                            onClick = { showExportImportDialog = true }
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = "Export/Import")
+                        }
+                        FloatingActionButton(
+                            onClick = { showAddLijek = true }
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Dodaj lijek")
+                        }
+                    }
+                }
+            ) { innerPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Lista lijekova", style = MaterialTheme.typography.headlineMedium)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    LijekoviGrupiraniPoDobaDana(
+                        lijekovi = lijekovi,
+                        onLijekClick = { lijek -> editLijek = lijek },
+                        onUzmiSve = { dob ->
+                            lijekovi.filter { it.dobaDana == dob }.forEach { it.uzmiLijek() }
+                        }
+                    )
                 }
             }
         }
@@ -62,91 +234,77 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PocetniEkran(modifier: Modifier = Modifier) {
-    var nazivLijeka by rememberSaveable { mutableStateOf("") }
-    var dobaDana by rememberSaveable { mutableStateOf(DobaDana.JUTRO) }
-    var pakiranje by rememberSaveable { mutableStateOf("30") }
-    var trenutnoStanje by rememberSaveable { mutableStateOf("0") }
-    val lijekovi = remember { mutableStateListOf<Lijek>() }
-    var idCounter by rememberSaveable { mutableStateOf(0) }
-    var editLijek by remember { mutableStateOf<Lijek?>(null) }
+fun DodajLijekEkran(
+    onDodaj: (String, DobaDana, Int, Int) -> Unit,
+    onOdustani: () -> Unit
+) {
+    var naziv by remember { mutableStateOf("") }
+    var pakiranje by remember { mutableStateOf("30") }
+    var trenutnoStanje by remember { mutableStateOf("0") }
+    var dobaDana by remember { mutableStateOf(DobaDana.JUTRO) }
 
-    if (editLijek != null) {
-        EditLijekaEkran(
-            lijek = editLijek!!,
-            onSpremi = {
-                editLijek = null
-            },
-            onOdustani = { editLijek = null }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Dodaj novi lijek", style = MaterialTheme.typography.headlineMedium)
+
+        OutlinedTextField(
+            value = naziv,
+            onValueChange = { naziv = it },
+            label = { Text("Naziv lijeka") },
+            modifier = Modifier.fillMaxWidth()
         )
-    } else {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
+
+        OutlinedTextField(
+            value = pakiranje,
+            onValueChange = { pakiranje = it },
+            label = { Text("Pakiranje (komada)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = trenutnoStanje,
+            onValueChange = { trenutnoStanje = it },
+            label = { Text("Trenutno stanje") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        DobaDanaDropdown(dobaDana) { dobaDana = it }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Lista lijekova", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            LijekoviGrupiraniPoDobaDana(
-                lijekovi = lijekovi,
-                onLijekClick = { lijek -> editLijek = lijek },
-                onUzmiSve = { dob ->
-                    lijekovi.filter { it.dobaDana == dob }.forEach { it.uzmiLijek() }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("Dodaj novi lijek", style = MaterialTheme.typography.titleMedium)
-
-            OutlinedTextField(
-                value = nazivLijeka,
-                onValueChange = { nazivLijeka = it },
-                label = { Text("Naziv lijeka") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = pakiranje,
-                    onValueChange = { pakiranje = it },
-                    label = { Text("Pakiranje (komada)") },
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedTextField(
-                    value = trenutnoStanje,
-                    onValueChange = { trenutnoStanje = it },
-                    label = { Text("Trenutno stanje") },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            DobaDanaDropdown(dobaDana) { dobaDana = it }
-
             Button(
                 onClick = {
-                    if (nazivLijeka.isNotBlank()) {
-                        lijekovi.add(
-                            Lijek(
-                                id = idCounter++,
-                                naziv = nazivLijeka,
-                                dobaDana = dobaDana,
-                                pakiranje = pakiranje.toIntOrNull() ?: 30,
-                                trenutnoStanje = trenutnoStanje.toIntOrNull() ?: 0
-                            )
+                    if (naziv.isNotBlank()) {
+                        onDodaj(
+                            naziv,
+                            dobaDana,
+                            pakiranje.toIntOrNull() ?: 30,
+                            trenutnoStanje.toIntOrNull() ?: 0
                         )
-                        nazivLijeka = ""
-                        pakiranje = "30"
-                        trenutnoStanje = "0"
-                        dobaDana = DobaDana.JUTRO
                     }
                 },
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.weight(1f)
             ) {
                 Text("Dodaj")
+            }
+
+            Button(
+                onClick = onOdustani,
+                modifier = Modifier.weight(1f),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = Color.Gray
+                )
+            ) {
+                Text("Odustani")
             }
         }
     }
@@ -369,6 +527,6 @@ fun DobaDanaDropdown(selected: DobaDana, onSelected: (DobaDana) -> Unit) {
 @Composable
 fun PocetniEkranPreview() {
     E_lijekovi_2Theme {
-        PocetniEkran()
+        PocetniEkran(context = null)
     }
 }

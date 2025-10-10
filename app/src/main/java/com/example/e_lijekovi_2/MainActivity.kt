@@ -77,7 +77,6 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Divider
-import androidx.compose.material3.HorizontalDivider
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -204,14 +203,14 @@ fun PocetniEkran(context: Context? = null) {
                 ) {
                     // Header
                     Text(
-                        text = "e-Lijekovi",
+                        text = "e-LijekoviHR",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
 
-                    HorizontalDivider(modifier = Modifier.padding(bottom = 8.dp))
+                    Divider(modifier = Modifier.padding(bottom = 8.dp))
 
                     // Navigation Items
                     NavigationDrawerItem(
@@ -271,7 +270,7 @@ fun PocetniEkran(context: Context? = null) {
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
 
                     // Footer
                     Text(
@@ -825,7 +824,7 @@ fun AboutScreen(onMenuClick: () -> Unit) {
             )
 
             Text(
-                text = "e-Lijekovi",
+                text = "e-LijekoviHR",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -855,12 +854,12 @@ fun AboutScreen(onMenuClick: () -> Unit) {
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "e-Lijekovi je aplikacija za jednostavno praćenje uzimanja lijekova i upravljanje zalihama.",
+                        text = "e-LijekoviHR je aplikacija za jednostavno praćenje uzimanja lijekova i upravljanje zalihama.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
 
                     Text(
                         text = "Značajke:",
@@ -874,7 +873,7 @@ fun AboutScreen(onMenuClick: () -> Unit) {
                     FeatureItem("💾 Export i import podataka")
                     FeatureItem("🎨 Moderan Material Design")
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
 
                     Text(
                         text = "Razvijeno s ❤️ korištenjem Kotlin i Jetpack Compose",
@@ -883,7 +882,7 @@ fun AboutScreen(onMenuClick: () -> Unit) {
                     )
 
                     Text(
-                        text = "© 2025 e-Lijekovi",
+                        text = "© 2025 e-LijekoviHR",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -955,22 +954,143 @@ fun DodajLijekEkran(
         )
 
         Text("Odaberi doba dana za uzimanje:", style = MaterialTheme.typography.bodyLarge)
-        Row {
-            Checkbox(
-                checked = dobaJutro,
-                onCheckedChange = { dobaJutro = it }
-            )
-            Text("Jutro", modifier = Modifier.padding(start = 4.dp, end = 16.dp))
-            Checkbox(
-                checked = dobaPopodne,
-                onCheckedChange = { dobaPopodne = it }
-            )
-            Text("Popodne", modifier = Modifier.padding(start = 4.dp, end = 16.dp))
-            Checkbox(
-                checked = dobaVecer,
-                onCheckedChange = { dobaVecer = it }
-            )
-            Text("Večer", modifier = Modifier.padding(start = 4.dp))
+
+        // Kocke za odabir doba dana
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Jutro kocka
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { dobaJutro = !dobaJutro },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (dobaJutro)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (dobaJutro) 8.dp else 2.dp
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WbSunny,
+                        contentDescription = "Jutro",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (dobaJutro)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Jutro",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (dobaJutro) FontWeight.Bold else FontWeight.Normal,
+                        color = if (dobaJutro)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Popodne kocka
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { dobaPopodne = !dobaPopodne },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (dobaPopodne)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (dobaPopodne) 8.dp else 2.dp
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WbTwilight,
+                        contentDescription = "Popodne",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (dobaPopodne)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Popodne",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (dobaPopodne) FontWeight.Bold else FontWeight.Normal,
+                        color = if (dobaPopodne)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Večer kocka
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { dobaVecer = !dobaVecer },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (dobaVecer)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (dobaVecer) 8.dp else 2.dp
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.NightsStay,
+                        contentDescription = "Večer",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (dobaVecer)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Večer",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (dobaVecer) FontWeight.Bold else FontWeight.Normal,
+                        color = if (dobaVecer)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1247,23 +1367,145 @@ fun EditLijekaEkran(
         )
 
         Text("Odaberi doba dana za uzimanje:", style = MaterialTheme.typography.bodyLarge)
-        Row {
-            Checkbox(
-                checked = dobaJutro,
-                onCheckedChange = { dobaJutro = it }
-            )
-            Text("Jutro", modifier = Modifier.padding(start = 4.dp, end = 16.dp))
-            Checkbox(
-                checked = dobaPopodne,
-                onCheckedChange = { dobaPopodne = it }
-            )
-            Text("Popodne", modifier = Modifier.padding(start = 4.dp, end = 16.dp))
-            Checkbox(
-                checked = dobaVecer,
-                onCheckedChange = { dobaVecer = it }
-            )
-            Text("Večer", modifier = Modifier.padding(start = 4.dp))
+        // Kocke za odabir doba dana
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Jutro kocka
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { dobaJutro = !dobaJutro },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (dobaJutro)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (dobaJutro) 8.dp else 2.dp
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WbSunny,
+                        contentDescription = "Jutro",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (dobaJutro)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Jutro",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (dobaJutro) FontWeight.Bold else FontWeight.Normal,
+                        color = if (dobaJutro)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Popodne kocka
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { dobaPopodne = !dobaPopodne },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (dobaPopodne)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (dobaPopodne) 8.dp else 2.dp
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.WbTwilight,
+                        contentDescription = "Popodne",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (dobaPopodne)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Popodne",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (dobaPopodne) FontWeight.Bold else FontWeight.Normal,
+                        color = if (dobaPopodne)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Večer kocka
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { dobaVecer = !dobaVecer },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (dobaVecer)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (dobaVecer) 8.dp else 2.dp
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.NightsStay,
+                        contentDescription = "Večer",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (dobaVecer)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Večer",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (dobaVecer) FontWeight.Bold else FontWeight.Normal,
+                        color = if (dobaVecer)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp)

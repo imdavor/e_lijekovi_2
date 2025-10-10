@@ -1,7 +1,9 @@
 package com.example.e_lijekovi_2
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.InternalSerializationApi
 
+@OptIn(InternalSerializationApi::class)
 @Serializable
 enum class DobaDana {
     JUTRO, POPODNE, VECER
@@ -11,7 +13,7 @@ enum class DobaDana {
 data class Lijek(
     val id: Int,
     var naziv: String,
-    var dobaDana: DobaDana,
+    var dobaDana: List<DobaDana>, // promijenjeno iz DobaDana u List<DobaDana>
     var pakiranje: Int = 30, // broj komada u pakiranju
     var trenutnoStanje: Int = 0, // trenutna količina
     var slikaUrl: String = "" // URL ili resource ID slike

@@ -4,11 +4,49 @@ import android.content.Context
 import android.net.Uri
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.File
 
 object LijekoviDataManager {
     private val json = Json {
         prettyPrint = true
         ignoreUnknownKeys = true // omogućava import starijih verzija ako dodamo nova polja
+    }
+
+    private const val LOCAL_FILE_NAME = "lijekovi_data.json"
+
+    /**
+     * Sprema listu lijekova u internu memoriju aplikacije
+     */
+    fun saveToLocalStorage(context: Context, lijekovi: List<Lijek>): Boolean {
+        return try {
+            val file = File(context.filesDir, LOCAL_FILE_NAME)
+            val jsonString = exportToJson(lijekovi)
+            file.writeText(jsonString)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Učitava listu lijekova iz interne memorije aplikacije
+     */
+    fun loadFromLocalStorage(context: Context): List<Lijek>? {
+        return try {
+            val file = File(context.filesDir, LOCAL_FILE_NAME)
+            if (!file.exists()) {
+                return emptyList()
+            }
+            val jsonString = file.readText()
+            if (jsonString.isEmpty()) {
+                return emptyList()
+            }
+            importFromJson(jsonString)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     /**

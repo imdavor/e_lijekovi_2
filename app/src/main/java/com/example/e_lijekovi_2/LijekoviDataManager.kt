@@ -50,28 +50,12 @@ object LijekoviDataManager {
     }
 
     /**
-     * Eksportira listu lijekova u JSON format
-     * Automatski uključuje sva polja iz Lijek data klase
-     */
-    fun exportToJson(lijekovi: List<Lijek>): String {
-        return json.encodeToString(lijekovi)
-    }
-
-    /**
-     * Importira listu lijekova iz JSON formata
-     * Automatski prepoznaje sva polja, čak i ako su dodana nova
-     */
-    fun importFromJson(jsonString: String): List<Lijek> {
-        return json.decodeFromString(jsonString)
-    }
-
-    /**
-     * Sprema listu lijekova u datoteku (koristi Uri za pristup)
+     * Sprema listu lijekova u specifičnu datoteku preko URI
      */
     fun saveToFile(context: Context, uri: Uri, lijekovi: List<Lijek>): Boolean {
         return try {
+            val jsonString = exportToJson(lijekovi)
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val jsonString = exportToJson(lijekovi)
                 outputStream.write(jsonString.toByteArray())
             }
             true
@@ -82,17 +66,58 @@ object LijekoviDataManager {
     }
 
     /**
-     * Učitava listu lijekova iz datoteke (koristi Uri za pristup)
+     * Učitava listu lijekova iz specifične datoteke preko URI
      */
     fun loadFromFile(context: Context, uri: Uri): List<Lijek>? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val jsonString = inputStream.bufferedReader().use { it.readText() }
+                val jsonString = inputStream.bufferedReader().readText()
                 importFromJson(jsonString)
             }
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
+    }
+
+    /**
+     * Eksportira listu lijekova u JSON string
+     */
+    private fun exportToJson(lijekovi: List<Lijek>): String {
+        return json.encodeToString(lijekovi)
+    }
+
+    /**
+     * Importira listu lijekova iz JSON stringa
+     */
+    private fun importFromJson(jsonString: String): List<Lijek> {
+        return Json.decodeFromString<List<Lijek>>(jsonString)
+    }
+
+    /**
+     * Briše sve lokalno spremljene podatke
+     */
+    @Suppress("unused")
+    fun clearLocalStorage(context: Context): Boolean {
+        return try {
+            val file = File(context.filesDir, LOCAL_FILE_NAME)
+            if (file.exists()) {
+                file.delete()
+            } else {
+                true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Proverava da li postoje lokalno spremljeni podaci
+     */
+    @Suppress("unused")
+    fun hasLocalData(context: Context): Boolean {
+        val file = File(context.filesDir, LOCAL_FILE_NAME)
+        return file.exists() && file.length() > 0
     }
 }

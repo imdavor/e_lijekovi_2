@@ -33,15 +33,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Medication
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material.icons.filled.NightsStay
@@ -55,9 +51,6 @@ import android.content.Context
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.sp
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
@@ -70,7 +63,6 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Help
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Divider
 import kotlinx.coroutines.launch
@@ -266,17 +258,6 @@ fun PocetniEkran(context: Context? = null) {
                     )
 
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.Help, contentDescription = "Pomoć") },
-                        label = { Text("Pomoć") },
-                        selected = currentScreen == "help",
-                        onClick = {
-                            currentScreen = "help"
-                            scope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                    )
-
-                    NavigationDrawerItem(
                         icon = { Icon(Icons.Default.Info, contentDescription = "O aplikaciji") },
                         label = { Text("O aplikaciji") },
                         selected = currentScreen == "about",
@@ -286,1340 +267,491 @@ fun PocetniEkran(context: Context? = null) {
                         },
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                     )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    // Footer
-                    Text(
-                        text = "Verzija 1.0.0",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(8.dp)
-                    )
                 }
             }
         }
     ) {
-        when {
-            editLijek != null -> {
-                EditLijekaEkran(
-                    lijek = editLijek!!,
-                    existingLijekovi = lijekovi,
-                    onSpremi = {
-                        editLijek = null
-                        saveData() // Automatski spremi nakon uređivanja
-                    },
-                    onOdustani = { editLijek = null }
-                )
-            }
-            showAddLijek -> {
-                DodajLijekEkran(
-                    onDodaj = { naziv, dobaDana, pakiranje, trenutnoStanje ->
-                        lijekovi.add(
-                            Lijek(
-                                id = idCounter++,
-                                naziv = naziv,
-                                dobaDana = dobaDana,
-                                pakiranje = pakiranje,
-                                trenutnoStanje = trenutnoStanje
-                            )
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            when (currentScreen) {
+                                "home" -> "Moji lijekovi"
+                                "statistics" -> "Statistike"
+                                "settings" -> "Postavke"
+                                "about" -> "O aplikaciji"
+                                else -> "e-LijekoviHR"
+                            }
                         )
-                        saveData() // Automatski spremi nakon dodavanja
-                        showAddLijek = false
                     },
-                    onOdustani = { showAddLijek = false },
-                    existingLijekovi = lijekovi
+                    navigationIcon = {
+                        IconButton(
+                            onClick = {
+                                scope.launch { drawerState.open() }
+                            }
+                        ) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    }
                 )
+            },
+            floatingActionButton = {
+                if (currentScreen == "home") {
+                    FloatingActionButton(
+                        onClick = { showAddLijek = true }
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Dodaj lijek")
+                    }
+                }
             }
-            else -> {
-                when (currentScreen) {
-                    "home" -> HomeScreen(
+        ) { paddingValues ->
+            when (currentScreen) {
+                "home" -> {
+                    HomeScreen(
                         lijekovi = lijekovi,
-                        onMenuClick = { scope.launch { drawerState.open() } },
                         onEditLijek = { editLijek = it },
-                        onAddLijek = { showAddLijek = true },
-                        onShowExportImport = { showExportImportDialog = true },
-                        onDataChanged = saveData // Proslijedi funkciju za spremanje
+                        onDeleteLijek = { lijek ->
+                            lijekovi.remove(lijek)
+                            saveData()
+                        },
+                        modifier = Modifier.padding(paddingValues)
                     )
-                    "statistics" -> StatisticsScreen(
+                }
+                "statistics" -> {
+                    StatisticsScreen(
                         lijekovi = lijekovi,
-                        onMenuClick = { scope.launch { drawerState.open() } }
+                        modifier = Modifier.padding(paddingValues)
                     )
-                    "settings" -> SettingsScreen(
-                        onMenuClick = { scope.launch { drawerState.open() } },
-                        onExportImport = { showExportImportDialog = true }
+                }
+                "settings" -> {
+                    SettingsScreen(
+                        onExportImport = { showExportImportDialog = true },
+                        modifier = Modifier.padding(paddingValues)
                     )
-                    "help" -> HelpScreen(
-                        onMenuClick = { scope.launch { drawerState.open() } }
-                    )
-                    "about" -> AboutScreen(
-                        onMenuClick = { scope.launch { drawerState.open() } }
-                    )
+                }
+                "about" -> {
+                    AboutScreen(modifier = Modifier.padding(paddingValues))
                 }
             }
         }
     }
+
+    // Dijalog za dodavanje novog lijeka
+    if (showAddLijek) {
+        LijekDialog(
+            lijek = null,
+            onDismiss = { showAddLijek = false },
+            onSave = { newLijek ->
+                val lijekWithId = newLijek.copy(id = idCounter++)
+                lijekovi.add(lijekWithId)
+                saveData()
+                showAddLijek = false
+            }
+        )
+    }
+
+    // Dijalog za uređivanje postojećeg lijeka
+    editLijek?.let { lijek ->
+        LijekDialog(
+            lijek = lijek,
+            onDismiss = { editLijek = null },
+            onSave = { updatedLijek ->
+                val index = lijekovi.indexOfFirst { it.id == lijek.id }
+                if (index != -1) {
+                    lijekovi[index] = updatedLijek
+                    saveData()
+                }
+                editLijek = null
+            }
+        )
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     lijekovi: List<Lijek>,
-    onMenuClick: () -> Unit,
     onEditLijek: (Lijek) -> Unit,
-    onAddLijek: () -> Unit,
-    onShowExportImport: () -> Unit,
-    onDataChanged: (() -> Boolean?)? = null
+    onDeleteLijek: (Lijek) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Lista lijekova") },
-                navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddLijek) {
-                Icon(Icons.Default.Add, contentDescription = "Dodaj lijek")
-            }
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.Top
+    if (lijekovi.isEmpty()) {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
-            if (lijekovi.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Medication,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = "Nema dodanih lijekova",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Dodaj prvi lijek klikom na + gumb",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else {
-                LijekoviGrupiraniPoDobaDana(
-                    lijekovi = lijekovi,
-                    onLijekClick = onEditLijek,
-                    onUzmiSve = { dob ->
-                        lijekovi.filter { it.dobaDana.contains(dob) }.forEach { it.uzmiLijek() }
-                        // Pozovi callback za spremanje podataka nakon uzimanja lijekova
-                        onDataChanged?.invoke()
-                    }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Default.Medication,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.primary
                 )
-
-                // Dodaj gumb za export/import na dnu liste
                 Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = onShowExportImport,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Export/Import",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Backup i restore podataka")
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun StatisticsScreen(
-    lijekovi: List<Lijek>,
-    onMenuClick: () -> Unit
-) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Statistike") },
-                navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Ukupno lijekova
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Ukupno lijekova",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                text = "${lijekovi.size}",
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.Medication,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            // Niska zaliha
-            val nikaZalihaCount = lijekovi.count { it.trebaLiNaruciti() }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (nikaZalihaCount > 0)
-                        MaterialTheme.colorScheme.errorContainer
-                    else
-                        MaterialTheme.colorScheme.secondaryContainer
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Niska zaliha",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "$nikaZalihaCount",
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (nikaZalihaCount > 0)
-                                    MaterialTheme.colorScheme.error
-                                else
-                                    MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = if (nikaZalihaCount > 0)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-            }
-
-            // Lijekovi po terminima
-            Text(
-                text = "Raspodjela po terminima",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-
-            DobaDana.entries.forEach { dob ->
-                val count = lijekovi.count { it.dobaDana.contains(dob) }
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = when(dob) {
-                                    DobaDana.JUTRO -> Icons.Default.WbSunny
-                                    DobaDana.POPODNE -> Icons.Default.WbTwilight
-                                    DobaDana.VECER -> Icons.Default.NightsStay
-                                },
-                                contentDescription = dob.name,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = dob.name.lowercase().replaceFirstChar { it.uppercase() },
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
-                        Text(
-                            text = "$count",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SettingsScreen(
-    onMenuClick: () -> Unit,
-    onExportImport: () -> Unit
-) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Postavke") },
-                navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Podaci",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onExportImport() },
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Backup i restore",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = "Exportaj ili importaj podatke",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            Text(
-                text = "Izgled",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Tema",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "Svijetla tema (automatski prema sistemu)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Text(
-                text = "Notifikacije",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Podsjetnici",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "Uskoro dostupno",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun HelpScreen(onMenuClick: () -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Pomoć") },
-                navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = "Često postavljana pitanja",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-
-            HelpItem(
-                question = "Kako dodati novi lijek?",
-                answer = "Kliknite na + gumb u donjem desnom kutu ekrana. Unesite naziv lijeka, količinu u pakiranju, trenutno stanje i odaberite termine uzimanja."
-            )
-
-            HelpItem(
-                question = "Kako uzeti lijek?",
-                answer = "Kliknite na karticu lijeka ili koristite 'Uzmi sve' gumb za cijelu grupu lijekova iz određenog termina."
-            )
-
-            HelpItem(
-                question = "Što znači crvena kartica?",
-                answer = "Crvena kartica označava da je zaliha lijeka niska (7 ili manje tableta). Vrijeme je da naručite novo pakiranje."
-            )
-
-            HelpItem(
-                question = "Kako izvesti podatke?",
-                answer = "Idite na Postavke > Backup i restore > Exportaj podatke. Podaci će biti spremljeni u JSON formatu."
-            )
-
-            HelpItem(
-                question = "Mogu li dodati lijek za više termina?",
-                answer = "Da! Prilikom dodavanja ili uređivanja lijeka možete označiti više termina (jutro, popodne, večer). Lijek će biti prikazan u svim odabranim grupama."
-            )
-        }
-    }
-}
-
-@Composable
-fun HelpItem(question: String, answer: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = question,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = answer,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AboutScreen(onMenuClick: () -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("O aplikaciji") },
-                navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Icon(
-                imageVector = Icons.Default.Medication,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-
-            Text(
-                text = "e-LijekoviHR",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Text(
-                text = "Verzija 1.0.0",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "O aplikaciji",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "e-LijekoviHR je aplikacija za jednostavno praćenje uzimanja lijekova i upravljanje zalihama.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    Text(
-                        text = "Značajke:",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    FeatureItem("📊 Praćenje stanja lijekova")
-                    FeatureItem("⏰ Organizacija po terminima uzimanja")
-                    FeatureItem("⚠️ Upozorenja za nisku zalihu")
-                    FeatureItem("💾 Export i import podataka")
-                    FeatureItem("🎨 Moderan Material Design")
-
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    Text(
-                        text = "Razvijeno s ❤️ korištenjem Kotlin i Jetpack Compose",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Text(
-                        text = "© 2025 e-LijekoviHR",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun FeatureItem(text: String) {
-    Row(
-        modifier = Modifier.padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(text = text, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@Composable
-fun DodajLijekEkran(
-    onDodaj: (String, List<DobaDana>, Int, Int) -> Unit,
-    onOdustani: () -> Unit,
-    existingLijekovi: List<Lijek> = emptyList()
-) {
-    var naziv by remember { mutableStateOf("") }
-    var pakiranje by remember { mutableStateOf("30") }
-    var trenutnoStanje by remember { mutableStateOf("0") }
-    var dobaJutro by remember { mutableStateOf(false) }
-    var dobaPopodne by remember { mutableStateOf(false) }
-    var dobaVecer by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("Dodaj novi lijek", style = MaterialTheme.typography.headlineMedium)
-
-        OutlinedTextField(
-            value = naziv,
-            onValueChange = {
-                naziv = it
-                errorMessage = null // Resetuj error kad korisnik tipka
-            },
-            label = { Text("Naziv lijeka") },
-            modifier = Modifier.fillMaxWidth(),
-            isError = errorMessage != null,
-            supportingText = if (errorMessage != null) {
-                { Text(errorMessage!!, color = MaterialTheme.colorScheme.error) }
-            } else null
-        )
-
-        OutlinedTextField(
-            value = pakiranje,
-            onValueChange = { pakiranje = it },
-            label = { Text("Pakiranje (komada)") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = trenutnoStanje,
-            onValueChange = { trenutnoStanje = it },
-            label = { Text("Trenutno stanje") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Text("Odaberi doba dana za uzimanje:", style = MaterialTheme.typography.bodyLarge)
-
-        // Kocke za odabir doba dana
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Jutro kocka
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { dobaJutro = !dobaJutro },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (dobaJutro)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (dobaJutro) 8.dp else 2.dp
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.WbSunny,
-                        contentDescription = "Jutro",
-                        modifier = Modifier.size(32.dp),
-                        tint = if (dobaJutro)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Jutro",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (dobaJutro) FontWeight.Bold else FontWeight.Normal,
-                        color = if (dobaJutro)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Popodne kocka
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { dobaPopodne = !dobaPopodne },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (dobaPopodne)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (dobaPopodne) 8.dp else 2.dp
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.WbTwilight,
-                        contentDescription = "Popodne",
-                        modifier = Modifier.size(32.dp),
-                        tint = if (dobaPopodne)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Popodne",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (dobaPopodne) FontWeight.Bold else FontWeight.Normal,
-                        color = if (dobaPopodne)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Večer kocka
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { dobaVecer = !dobaVecer },
-                colors = CardDefaults.cardColors(
-                    containerColor = if (dobaVecer)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (dobaVecer) 8.dp else 2.dp
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.NightsStay,
-                        contentDescription = "Večer",
-                        modifier = Modifier.size(32.dp),
-                        tint = if (dobaVecer)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Večer",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = if (dobaVecer) FontWeight.Bold else FontWeight.Normal,
-                        color = if (dobaVecer)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = {
-                    if (naziv.isBlank()) {
-                        errorMessage = "Naziv lijeka ne može biti prazan"
-                        return@Button
-                    }
-
-                    // Provjera duplikata (case-insensitive)
-                    val duplicateExists = existingLijekovi.any {
-                        it.naziv.trim().lowercase() == naziv.trim().lowercase()
-                    }
-
-                    if (duplicateExists) {
-                        errorMessage = "Lijek s nazivom '$naziv' već postoji"
-                        return@Button
-                    }
-
-                    val odabranaDobaDana = mutableListOf<DobaDana>()
-                    if (dobaJutro) odabranaDobaDana.add(DobaDana.JUTRO)
-                    if (dobaPopodne) odabranaDobaDana.add(DobaDana.POPODNE)
-                    if (dobaVecer) odabranaDobaDana.add(DobaDana.VECER)
-
-                    if (odabranaDobaDana.isEmpty()) {
-                        errorMessage = "Odaberi barem jedno doba dana"
-                        return@Button
-                    }
-
-                    onDodaj(
-                        naziv.trim(),
-                        odabranaDobaDana,
-                        pakiranje.toIntOrNull() ?: 30,
-                        trenutnoStanje.toIntOrNull() ?: 0
-                    )
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Dodaj")
-            }
-
-            Button(
-                onClick = onOdustani,
-                modifier = Modifier.weight(1f),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = Color.Gray
+                Text(
+                    "Nemate dodane lijekove",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            ) {
-                Text("Odustani")
+                Text(
+                    "Pritisnite + za dodavanje novog lijeka",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun LijekoviGrupiraniPoDobaDana(
-    lijekovi: List<Lijek>,
-    onLijekClick: (Lijek) -> Unit,
-    onUzmiSve: (DobaDana) -> Unit
-) {
-    val grupirani = DobaDana.entries.associateWith { dob -> lijekovi.filter { it.dobaDana.contains(dob) } }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        DobaDana.entries.forEach { dob ->
-            if (grupirani[dob]?.isNotEmpty() == true) {
-                // Header za svako doba dana s ikonom
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = when(dob) {
-                                    DobaDana.JUTRO -> Icons.Default.WbSunny
-                                    DobaDana.POPODNE -> Icons.Default.WbTwilight
-                                    DobaDana.VECER -> Icons.Default.NightsStay
-                                },
-                                contentDescription = dob.name,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Text(
-                                text = dob.name.lowercase().replaceFirstChar { it.uppercase() },
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                        Button(
-                            onClick = { onUzmiSve(dob) },
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CheckCircle,
-                                contentDescription = "Uzmi sve",
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Uzmi sve")
-                        }
-                    }
-                }
-
-                // Kartice za lijekove
-                grupirani[dob]?.forEach { lijek ->
-                    Card(
-                        onClick = { onLijekClick(lijek) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (lijek.trebaLiNaruciti())
-                                MaterialTheme.colorScheme.errorContainer
-                            else
-                                MaterialTheme.colorScheme.surface
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Ikona lijeka
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .padding(8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Medication,
-                                        contentDescription = "Lijek",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = lijek.naziv,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Text(
-                                            text = "Stanje: ${lijek.trenutnoStanje}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (lijek.trebaLiNaruciti())
-                                                MaterialTheme.colorScheme.error
-                                            else
-                                                MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "• Pakiranje: ${lijek.pakiranje}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-
-                            if (lijek.trebaLiNaruciti()) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = "Naruči lijek",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Uredi",
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
+    } else {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            lijekovi.forEach { lijek ->
+                LijekCard(
+                    lijek = lijek,
+                    onEdit = { onEditLijek(lijek) },
+                    onDelete = { onDeleteLijek(lijek) }
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditLijekaEkran(
-    lijek: Lijek,
-    existingLijekovi: List<Lijek> = emptyList(),
-    onSpremi: () -> Unit,
-    onOdustani: () -> Unit
+fun StatisticsScreen(
+    lijekovi: List<Lijek>,
+    modifier: Modifier = Modifier
 ) {
-    var naziv by remember { mutableStateOf(lijek.naziv) }
-    var pakiranje by remember { mutableStateOf(lijek.pakiranje.toString()) }
-    var trenutnoStanje by remember { mutableStateOf(lijek.trenutnoStanje.toString()) }
-    var dobaDana by remember { mutableStateOf(lijek.dobaDana) }
-    var dobaJutro by remember { mutableStateOf(dobaDana.contains(DobaDana.JUTRO)) }
-    var dobaPopodne by remember { mutableStateOf(dobaDana.contains(DobaDana.POPODNE)) }
-    var dobaVecer by remember { mutableStateOf(dobaDana.contains(DobaDana.VECER)) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "Statistike lijekova",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Uredi lijek") },
-                navigationIcon = {
-                    IconButton(onClick = onOdustani) {
-                        Icon(Icons.Default.Edit, contentDescription = "Natrag")
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
-            Text("Uredi lijek", style = MaterialTheme.typography.headlineMedium)
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text("Ukupno lijekova: ${lijekovi.size}")
+                Text("Jutarnji lijekovi: ${lijekovi.count { it.jutro }}")
+                Text("Popodnevni lijekovi: ${lijekovi.count { it.popodne }}")
+                Text("Večernji lijekovi: ${lijekovi.count { it.vecer }}")
+            }
+        }
+    }
+}
 
-            OutlinedTextField(
-                value = naziv,
-                onValueChange = {
-                    naziv = it
-                    errorMessage = null
-                },
-                label = { Text("Naziv lijeka") },
-                modifier = Modifier.fillMaxWidth(),
-                isError = errorMessage != null,
-                supportingText = if (errorMessage != null) {
-                    { Text(errorMessage!!, color = MaterialTheme.colorScheme.error) }
-                } else null
-            )
+@Composable
+fun SettingsScreen(
+    onExportImport: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "Postavke",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
-            OutlinedTextField(
-                value = pakiranje,
-                onValueChange = { pakiranje = it },
-                label = { Text("Pakiranje (komada)") },
-                modifier = Modifier.fillMaxWidth()
-            )
+        Button(
+            onClick = onExportImport,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Upravljanje podacima")
+        }
+    }
+}
 
-            OutlinedTextField(
-                value = trenutnoStanje,
-                onValueChange = { trenutnoStanje = it },
-                label = { Text("Trenutno stanje") },
-                modifier = Modifier.fillMaxWidth()
-            )
+@Composable
+fun AboutScreen(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "O aplikaciji",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
-            Text("Odaberi doba dana za uzimanje:", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            "e-LijekoviHR v1.0",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-            // Kocke za odabir doba dana
+        Text(
+            "Aplikacija za praćenje uzimanja lijekova.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+fun LijekCard(
+    lijek: Lijek,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onEdit() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                // Jutro kocka
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { dobaJutro = !dobaJutro },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (dobaJutro)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = if (dobaJutro) 8.dp else 2.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.WbSunny,
-                            contentDescription = "Jutro",
-                            modifier = Modifier.size(32.dp),
-                            tint = if (dobaJutro)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Jutro",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (dobaJutro) FontWeight.Bold else FontWeight.Normal,
-                            color = if (dobaJutro)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = lijek.naziv,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = lijek.doza,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
-                // Popodne kocka
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { dobaPopodne = !dobaPopodne },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (dobaPopodne)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = if (dobaPopodne) 8.dp else 2.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.WbTwilight,
-                            contentDescription = "Popodne",
-                            modifier = Modifier.size(32.dp),
-                            tint = if (dobaPopodne)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Popodne",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (dobaPopodne) FontWeight.Bold else FontWeight.Normal,
-                            color = if (dobaPopodne)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Večer kocka
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { dobaVecer = !dobaVecer },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (dobaVecer)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = if (dobaVecer) 8.dp else 2.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.NightsStay,
-                            contentDescription = "Večer",
-                            modifier = Modifier.size(32.dp),
-                            tint = if (dobaVecer)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Večer",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = if (dobaVecer) FontWeight.Bold else FontWeight.Normal,
-                            color = if (dobaVecer)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Uredi")
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            if (lijek.napomene.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = lijek.napomene,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
-                    onClick = {
-                        if (naziv.isBlank()) {
-                            errorMessage = "Naziv lijeka ne može biti prazan"
-                            return@Button
-                        }
-
-                        // Provjera duplikata (case-insensitive) - isključi trenutni lijek
-                        val duplicateExists = existingLijekovi.any {
-                            it.id != lijek.id && it.naziv.trim().lowercase() == naziv.trim().lowercase()
-                        }
-
-                        if (duplicateExists) {
-                            errorMessage = "Lijek s nazivom '$naziv' već postoji"
-                            return@Button
-                        }
-
-                        val odabranaDobaDana = mutableListOf<DobaDana>()
-                        if (dobaJutro) odabranaDobaDana.add(DobaDana.JUTRO)
-                        if (dobaPopodne) odabranaDobaDana.add(DobaDana.POPODNE)
-                        if (dobaVecer) odabranaDobaDana.add(DobaDana.VECER)
-
-                        if (odabranaDobaDana.isEmpty()) {
-                            errorMessage = "Odaberi barem jedno doba dana"
-                            return@Button
-                        }
-
-                        // Ažuriraj postojeći lijek
-                        lijek.naziv = naziv.trim()
-                        lijek.pakiranje = pakiranje.toIntOrNull() ?: 30
-                        lijek.trenutnoStanje = trenutnoStanje.toIntOrNull() ?: 0
-                        lijek.dobaDana = odabranaDobaDana
-
-                        onSpremi()
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Spremi")
+                if (lijek.jutro) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.WbSunny,
+                            contentDescription = "Jutro",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = lijek.vrijemeJutro,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
 
-                Button(
-                    onClick = onOdustani,
-                    modifier = Modifier.weight(1f),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = Color.Gray
-                    )
-                ) {
-                    Text("Odustani")
+                if (lijek.popodne) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.WbTwilight,
+                            contentDescription = "Popodne",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = lijek.vrijemePopodne,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
+                if (lijek.vecer) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.NightsStay,
+                            contentDescription = "Večer",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = lijek.vrijemeVecer,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+fun LijekDialog(
+    lijek: Lijek?,
+    onDismiss: () -> Unit,
+    onSave: (Lijek) -> Unit
+) {
+    var naziv by remember { mutableStateOf(lijek?.naziv ?: "") }
+    var doza by remember { mutableStateOf(lijek?.doza ?: "") }
+    var jutro by remember { mutableStateOf(lijek?.jutro ?: false) }
+    var popodne by remember { mutableStateOf(lijek?.popodne ?: false) }
+    var vecer by remember { mutableStateOf(lijek?.vecer ?: false) }
+    var napomene by remember { mutableStateOf(lijek?.napomene ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (lijek == null) "Dodaj lijek" else "Uredi lijek") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = naziv,
+                    onValueChange = { naziv = it },
+                    label = { Text("Naziv lijeka") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = doza,
+                    onValueChange = { doza = it },
+                    label = { Text("Doza") },
+                    placeholder = { Text("npr. 1 tableta") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Checkboxovi za vrijeme uzimanja
+                Text(
+                    "Vrijeme uzimanja:",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { jutro = !jutro },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = jutro,
+                        onCheckedChange = { jutro = it }
+                    )
+                    Icon(
+                        Icons.Default.WbSunny,
+                        contentDescription = "Jutro",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Jutro (08:00)")
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { popodne = !popodne },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = popodne,
+                        onCheckedChange = { popodne = it }
+                    )
+                    Icon(
+                        Icons.Default.WbTwilight,
+                        contentDescription = "Popodne",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Popodne (14:00)")
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { vecer = !vecer },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = vecer,
+                        onCheckedChange = { vecer = it }
+                    )
+                    Icon(
+                        Icons.Default.NightsStay,
+                        contentDescription = "Večer",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Večer (20:00)")
+                }
+
+                OutlinedTextField(
+                    value = napomene,
+                    onValueChange = { napomene = it },
+                    label = { Text("Napomene") },
+                    placeholder = { Text("Dodatne informacije...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (naziv.isNotBlank() && doza.isNotBlank()) {
+                        val newLijek = lijek?.copy(
+                            naziv = naziv,
+                            doza = doza,
+                            jutro = jutro,
+                            popodne = popodne,
+                            vecer = vecer,
+                            napomene = napomene
+                        ) ?: Lijek(
+                            id = 0, // Bit će postavljen u pozivnoj funkciji
+                            naziv = naziv,
+                            doza = doza,
+                            jutro = jutro,
+                            popodne = popodne,
+                            vecer = vecer,
+                            napomene = napomene
+                        )
+                        onSave(newLijek)
+                    }
+                }
+            ) {
+                Text("Spremi")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Odustani")
+            }
+        }
+    )
 }

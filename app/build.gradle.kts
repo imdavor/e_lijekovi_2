@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.e_lijekovi_2"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.e_lijekovi_2"
@@ -42,6 +42,10 @@ android {
     }
     kotlinOptions {
         jvmTarget = "1.8"
+        freeCompilerArgs += listOf(
+            "-opt-in=kotlinx.serialization.InternalSerializationApi",
+            "-opt-in=kotlinx.serialization.ExperimentalSerializationApi"
+        )
     }
     buildFeatures {
         compose = true

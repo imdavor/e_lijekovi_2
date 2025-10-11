@@ -97,6 +97,9 @@ data class Lijek(
     val napomene: String = "",
     val boja: String = "#4CAF50", // Default zelena boja
 
+    // Pakiranje - broj tableta/doza u jednom pakiranju
+    val pakiranje: Int = 30, // Default 30 tableta po pakiranju
+
     // Za redoslijed prikaza unutar vremenske grupe
     val sortOrderJutro: Int = 0,
     val sortOrderPopodne: Int = 0,

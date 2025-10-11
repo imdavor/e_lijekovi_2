@@ -415,6 +415,7 @@ fun HomeScreen(
     var draggedTimeGroup by remember { mutableStateOf<DobaDana?>(null) }
     var draggedOverIndex by remember { mutableStateOf<Int?>(null) }
     var draggedFromIndex by remember { mutableStateOf<Int?>(null) }
+    var cumulativeDragOffset by remember { mutableStateOf(0f) }
 
     // Funkcija za spremanje novog redoslijeda
     val saveReorderedList = { timeGroup: DobaDana, reorderedList: List<Lijek> ->
@@ -487,75 +488,95 @@ fun HomeScreen(
                 )
 
                 jutarnjiLijekovi.forEachIndexed { index, lijek ->
-                    // Prikaži liniju prije kartice ako je ovo ciljna pozicija
+                    // Prikaži drop indicator prije trenutne pozicije
                     if (draggedTimeGroup == DobaDana.JUTRO &&
                         draggedOverIndex == index &&
-                        draggedFromIndex != index &&
-                        draggedLijek?.id != lijek.id) {
+                        draggedFromIndex != null &&
+                        draggedFromIndex != index) {
                         DropIndicatorLine()
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    ReorderableLijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        isDraggable = true,
-                        isDragging = draggedLijek?.id == lijek.id,
-                        isHoveredOver = draggedTimeGroup == DobaDana.JUTRO && draggedOverIndex == index,
-                        onDragStart = {
-                            draggedLijek = lijek
-                            draggedTimeGroup = DobaDana.JUTRO
-                            draggedFromIndex = index
-                        },
-                        onDragEnd = { offsetY ->
-                            draggedLijek?.let { dragged ->
-                                if (draggedTimeGroup == DobaDana.JUTRO && draggedFromIndex != null) {
-                                    val currentList = jutarnjiLijekovi.toMutableList()
+                    // Potpuno sakrij karticu koja se vuče
+                    val isCurrentlyDragged = draggedLijek?.id == lijek.id && draggedTimeGroup == DobaDana.JUTRO
+
+                    if (!isCurrentlyDragged) {
+                        ReorderableLijekCard(
+                            lijek = lijek,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            isDraggable = true,
+                            isDragging = false,
+                            isHoveredOver = draggedTimeGroup == DobaDana.JUTRO && draggedOverIndex == index,
+                            onDragStart = {
+                                draggedLijek = lijek
+                                draggedTimeGroup = DobaDana.JUTRO
+                                draggedFromIndex = index
+                                draggedOverIndex = index
+                                cumulativeDragOffset = 0f
+                            },
+                            onDragEnd = {
+                                if (draggedFromIndex != null && draggedOverIndex != null && draggedTimeGroup == DobaDana.JUTRO) {
                                     val fromIndex = draggedFromIndex!!
-
-                                    // Bolja kalkulacija - koristi stvarni offset u pikselima
-                                    val itemHeightPx = 128 * 3 // približno 120dp kartice + 8dp razmak u pikselima
-                                    val moveCount = (offsetY / itemHeightPx).toInt()
-                                    var toIndex = fromIndex + moveCount
-
-                                    // Limitiraj na validne indekse
-                                    toIndex = toIndex.coerceIn(0, currentList.size - 1)
+                                    val toIndex = draggedOverIndex!!
 
                                     if (fromIndex != toIndex) {
+                                        val currentList = jutarnjiLijekovi.toMutableList()
                                         val item = currentList.removeAt(fromIndex)
                                         currentList.add(toIndex, item)
                                         saveReorderedList(DobaDana.JUTRO, currentList)
                                     }
                                 }
-                            }
-                            draggedLijek = null
-                            draggedTimeGroup = null
-                            draggedOverIndex = null
-                            draggedFromIndex = null
-                        },
-                        onDragPositionChange = { offsetY ->
-                            if (draggedFromIndex != null) {
-                                // Bolja kalkulacija za hover indikator
-                                val itemHeightPx = 128 * 3
-                                val moveCount = (offsetY / itemHeightPx).toInt()
-                                val newIndex = (draggedFromIndex!! + moveCount)
-                                    .coerceIn(0, jutarnjiLijekovi.size - 1)
-                                draggedOverIndex = newIndex
-                            }
-                        }
-                    )
+                                draggedLijek = null
+                                draggedTimeGroup = null
+                                draggedOverIndex = null
+                                draggedFromIndex = null
+                                cumulativeDragOffset = 0f
+                            },
+                            onDragPositionChange = { dragAmount ->
+                                if (draggedFromIndex != null) {
+                                    cumulativeDragOffset += dragAmount
 
-                    // Prikaži liniju nakon zadnje kartice
-                    if (draggedTimeGroup == DobaDana.JUTRO &&
-                        index == jutarnjiLijekovi.size - 1 &&
-                        draggedOverIndex == jutarnjiLijekovi.size &&
-                        draggedFromIndex != index) {
-                        DropIndicatorLine()
+                                    // Visina kartice + razmak (približno 130dp)
+                                    val cardHeight = 130f
+
+                                    // Izračunaj novu poziciju
+                                    val movement = (cumulativeDragOffset / cardHeight).toInt()
+                                    val newIndex = (draggedFromIndex!! + movement)
+                                        .coerceIn(0, jutarnjiLijekovi.size - 1)
+
+                                    if (newIndex != draggedOverIndex) {
+                                        draggedOverIndex = newIndex
+                                    }
+                                }
+                            }
+                        )
+                    } else {
+                        // Prikaži "ghost" verziju kartice koja se vuče
+                        ReorderableLijekCard(
+                            lijek = lijek,
+                            onEdit = { },
+                            onDelete = { },
+                            isDraggable = true,
+                            isDragging = true,
+                            isHoveredOver = false,
+                            onDragStart = { },
+                            onDragEnd = { },
+                            onDragPositionChange = { }
+                        )
                     }
 
                     if (index < jutarnjiLijekovi.size - 1) {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
+                }
+
+                // Prikaži drop indicator nakon zadnje kartice
+                if (draggedTimeGroup == DobaDana.JUTRO &&
+                    draggedOverIndex == jutarnjiLijekovi.size &&
+                    draggedFromIndex != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DropIndicatorLine()
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -574,67 +595,85 @@ fun HomeScreen(
                 popodnevniLijekovi.forEachIndexed { index, lijek ->
                     if (draggedTimeGroup == DobaDana.POPODNE &&
                         draggedOverIndex == index &&
-                        draggedFromIndex != index &&
-                        draggedLijek?.id != lijek.id) {
+                        draggedFromIndex != null &&
+                        draggedFromIndex != index) {
                         DropIndicatorLine()
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    ReorderableLijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        isDraggable = true,
-                        isDragging = draggedLijek?.id == lijek.id,
-                        isHoveredOver = draggedTimeGroup == DobaDana.POPODNE && draggedOverIndex == index,
-                        onDragStart = {
-                            draggedLijek = lijek
-                            draggedTimeGroup = DobaDana.POPODNE
-                            draggedFromIndex = index
-                        },
-                        onDragEnd = { offsetY ->
-                            draggedLijek?.let { dragged ->
-                                if (draggedTimeGroup == DobaDana.POPODNE && draggedFromIndex != null) {
-                                    val currentList = popodnevniLijekovi.toMutableList()
-                                    val fromIndex = draggedFromIndex!!
+                    val isCurrentlyDragged = draggedLijek?.id == lijek.id && draggedTimeGroup == DobaDana.POPODNE
 
-                                    val itemHeightPx = 128 * 3
-                                    val moveCount = (offsetY / itemHeightPx).toInt()
-                                    var toIndex = fromIndex + moveCount
-                                    toIndex = toIndex.coerceIn(0, currentList.size - 1)
+                    if (!isCurrentlyDragged) {
+                        ReorderableLijekCard(
+                            lijek = lijek,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            isDraggable = true,
+                            isDragging = false,
+                            isHoveredOver = draggedTimeGroup == DobaDana.POPODNE && draggedOverIndex == index,
+                            onDragStart = {
+                                draggedLijek = lijek
+                                draggedTimeGroup = DobaDana.POPODNE
+                                draggedFromIndex = index
+                                draggedOverIndex = index
+                                cumulativeDragOffset = 0f
+                            },
+                            onDragEnd = {
+                                if (draggedFromIndex != null && draggedOverIndex != null && draggedTimeGroup == DobaDana.POPODNE) {
+                                    val fromIndex = draggedFromIndex!!
+                                    val toIndex = draggedOverIndex!!
 
                                     if (fromIndex != toIndex) {
+                                        val currentList = popodnevniLijekovi.toMutableList()
                                         val item = currentList.removeAt(fromIndex)
                                         currentList.add(toIndex, item)
                                         saveReorderedList(DobaDana.POPODNE, currentList)
                                     }
                                 }
-                            }
-                            draggedLijek = null
-                            draggedTimeGroup = null
-                            draggedOverIndex = null
-                            draggedFromIndex = null
-                        },
-                        onDragPositionChange = { offsetY ->
-                            if (draggedFromIndex != null) {
-                                val itemHeightPx = 128 * 3
-                                val moveCount = (offsetY / itemHeightPx).toInt()
-                                val newIndex = (draggedFromIndex!! + moveCount)
-                                    .coerceIn(0, popodnevniLijekovi.size - 1)
-                                draggedOverIndex = newIndex
-                            }
-                        }
-                    )
+                                draggedLijek = null
+                                draggedTimeGroup = null
+                                draggedOverIndex = null
+                                draggedFromIndex = null
+                                cumulativeDragOffset = 0f
+                            },
+                            onDragPositionChange = { dragAmount ->
+                                if (draggedFromIndex != null) {
+                                    cumulativeDragOffset += dragAmount
+                                    val cardHeight = 130f
+                                    val movement = (cumulativeDragOffset / cardHeight).toInt()
+                                    val newIndex = (draggedFromIndex!! + movement)
+                                        .coerceIn(0, popodnevniLijekovi.size - 1)
 
-                    if (draggedTimeGroup == DobaDana.POPODNE &&
-                        index == popodnevniLijekovi.size - 1 &&
-                        draggedOverIndex == popodnevniLijekovi.size &&
-                        draggedFromIndex != index) {
-                        DropIndicatorLine()
+                                    if (newIndex != draggedOverIndex) {
+                                        draggedOverIndex = newIndex
+                                    }
+                                }
+                            }
+                        )
+                    } else {
+                        ReorderableLijekCard(
+                            lijek = lijek,
+                            onEdit = { },
+                            onDelete = { },
+                            isDraggable = true,
+                            isDragging = true,
+                            isHoveredOver = false,
+                            onDragStart = { },
+                            onDragEnd = { },
+                            onDragPositionChange = { }
+                        )
                     }
 
                     if (index < popodnevniLijekovi.size - 1) {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
+                }
+
+                if (draggedTimeGroup == DobaDana.POPODNE &&
+                    draggedOverIndex == popodnevniLijekovi.size &&
+                    draggedFromIndex != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DropIndicatorLine()
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -653,67 +692,85 @@ fun HomeScreen(
                 vecernjiLijekovi.forEachIndexed { index, lijek ->
                     if (draggedTimeGroup == DobaDana.VECER &&
                         draggedOverIndex == index &&
-                        draggedFromIndex != index &&
-                        draggedLijek?.id != lijek.id) {
+                        draggedFromIndex != null &&
+                        draggedFromIndex != index) {
                         DropIndicatorLine()
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    ReorderableLijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        isDraggable = true,
-                        isDragging = draggedLijek?.id == lijek.id,
-                        isHoveredOver = draggedTimeGroup == DobaDana.VECER && draggedOverIndex == index,
-                        onDragStart = {
-                            draggedLijek = lijek
-                            draggedTimeGroup = DobaDana.VECER
-                            draggedFromIndex = index
-                        },
-                        onDragEnd = { offsetY ->
-                            draggedLijek?.let { dragged ->
-                                if (draggedTimeGroup == DobaDana.VECER && draggedFromIndex != null) {
-                                    val currentList = vecernjiLijekovi.toMutableList()
-                                    val fromIndex = draggedFromIndex!!
+                    val isCurrentlyDragged = draggedLijek?.id == lijek.id && draggedTimeGroup == DobaDana.VECER
 
-                                    val itemHeightPx = 128 * 3
-                                    val moveCount = (offsetY / itemHeightPx).toInt()
-                                    var toIndex = fromIndex + moveCount
-                                    toIndex = toIndex.coerceIn(0, currentList.size - 1)
+                    if (!isCurrentlyDragged) {
+                        ReorderableLijekCard(
+                            lijek = lijek,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            isDraggable = true,
+                            isDragging = false,
+                            isHoveredOver = draggedTimeGroup == DobaDana.VECER && draggedOverIndex == index,
+                            onDragStart = {
+                                draggedLijek = lijek
+                                draggedTimeGroup = DobaDana.VECER
+                                draggedFromIndex = index
+                                draggedOverIndex = index
+                                cumulativeDragOffset = 0f
+                            },
+                            onDragEnd = {
+                                if (draggedFromIndex != null && draggedOverIndex != null && draggedTimeGroup == DobaDana.VECER) {
+                                    val fromIndex = draggedFromIndex!!
+                                    val toIndex = draggedOverIndex!!
 
                                     if (fromIndex != toIndex) {
+                                        val currentList = vecernjiLijekovi.toMutableList()
                                         val item = currentList.removeAt(fromIndex)
                                         currentList.add(toIndex, item)
                                         saveReorderedList(DobaDana.VECER, currentList)
                                     }
                                 }
-                            }
-                            draggedLijek = null
-                            draggedTimeGroup = null
-                            draggedOverIndex = null
-                            draggedFromIndex = null
-                        },
-                        onDragPositionChange = { offsetY ->
-                            if (draggedFromIndex != null) {
-                                val itemHeightPx = 128 * 3
-                                val moveCount = (offsetY / itemHeightPx).toInt()
-                                val newIndex = (draggedFromIndex!! + moveCount)
-                                    .coerceIn(0, vecernjiLijekovi.size - 1)
-                                draggedOverIndex = newIndex
-                            }
-                        }
-                    )
+                                draggedLijek = null
+                                draggedTimeGroup = null
+                                draggedOverIndex = null
+                                draggedFromIndex = null
+                                cumulativeDragOffset = 0f
+                            },
+                            onDragPositionChange = { dragAmount ->
+                                if (draggedFromIndex != null) {
+                                    cumulativeDragOffset += dragAmount
+                                    val cardHeight = 130f
+                                    val movement = (cumulativeDragOffset / cardHeight).toInt()
+                                    val newIndex = (draggedFromIndex!! + movement)
+                                        .coerceIn(0, vecernjiLijekovi.size - 1)
 
-                    if (draggedTimeGroup == DobaDana.VECER &&
-                        index == vecernjiLijekovi.size - 1 &&
-                        draggedOverIndex == vecernjiLijekovi.size &&
-                        draggedFromIndex != index) {
-                        DropIndicatorLine()
+                                    if (newIndex != draggedOverIndex) {
+                                        draggedOverIndex = newIndex
+                                    }
+                                }
+                            }
+                        )
+                    } else {
+                        ReorderableLijekCard(
+                            lijek = lijek,
+                            onEdit = { },
+                            onDelete = { },
+                            isDraggable = true,
+                            isDragging = true,
+                            isHoveredOver = false,
+                            onDragStart = { },
+                            onDragEnd = { },
+                            onDragPositionChange = { }
+                        )
                     }
 
                     if (index < vecernjiLijekovi.size - 1) {
                         Spacer(modifier = Modifier.height(8.dp))
                     }
+                }
+
+                if (draggedTimeGroup == DobaDana.VECER &&
+                    draggedOverIndex == vecernjiLijekovi.size &&
+                    draggedFromIndex != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DropIndicatorLine()
                 }
             }
         }
@@ -981,6 +1038,7 @@ fun LijekDialog(
 ) {
     var naziv by remember { mutableStateOf(lijek?.naziv ?: "") }
     var doza by remember { mutableStateOf(lijek?.doza ?: "") }
+    var pakiranje by remember { mutableStateOf(lijek?.pakiranje?.toString() ?: "30") }
     var jutro by remember { mutableStateOf(lijek?.jutro ?: false) }
     var popodne by remember { mutableStateOf(lijek?.popodne ?: false) }
     var vecer by remember { mutableStateOf(lijek?.vecer ?: false) }
@@ -1013,6 +1071,15 @@ fun LijekDialog(
                     placeholder = { Text("npr. 1 tableta, 5mg") },
                     modifier = Modifier.fillMaxWidth(),
                     isError = showError && doza.isBlank()
+                )
+
+                OutlinedTextField(
+                    value = pakiranje,
+                    onValueChange = { pakiranje = it.filter { char -> char.isDigit() } },
+                    label = { Text("Pakiranje (broj tableta/doza)") },
+                    placeholder = { Text("npr. 30") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = showError && pakiranje.isBlank()
                 )
 
                 // 🎨 Kocke za odabir doba dana (prema TODO-u)
@@ -1097,15 +1164,23 @@ fun LijekDialog(
             TextButton(
                 onClick = {
                     // Validacija
-                    if (naziv.isBlank() || doza.isBlank() || (!jutro && !popodne && !vecer)) {
+                    if (naziv.isBlank() || doza.isBlank() || pakiranje.isBlank() || (!jutro && !popodne && !vecer)) {
                         showError = true
                         errorMessage = "Sva polja moraju biti popunjena i barem jedno vrijeme odabrano"
+                        return@TextButton
+                    }
+
+                    val pakiranjeInt = pakiranje.toIntOrNull()
+                    if (pakiranjeInt == null || pakiranjeInt <= 0) {
+                        showError = true
+                        errorMessage = "Pakiranje mora biti pozitivan broj"
                         return@TextButton
                     }
 
                     val newLijek = lijek?.copy(
                         naziv = naziv,
                         doza = doza,
+                        pakiranje = pakiranjeInt,
                         jutro = jutro,
                         popodne = popodne,
                         vecer = vecer,
@@ -1114,6 +1189,7 @@ fun LijekDialog(
                         id = 0,
                         naziv = naziv,
                         doza = doza,
+                        pakiranje = pakiranjeInt,
                         jutro = jutro,
                         popodne = popodne,
                         vecer = vecer,
@@ -1222,7 +1298,8 @@ fun ReorderableLijekCard(
                                 change.consume()
                                 offsetX += dragAmount.x
                                 offsetY += dragAmount.y
-                                onDragPositionChange(offsetY)
+                                // Šalji SAMO inkrementalni pomak, ne kumulativni offset
+                                onDragPositionChange(dragAmount.y)
                             },
                             onDragEnd = {
                                 onDragEnd(offsetY)
@@ -1380,4 +1457,3 @@ fun DropIndicatorLine() {
         color = MaterialTheme.colorScheme.primary
     )
 }
-

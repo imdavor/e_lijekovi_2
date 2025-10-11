@@ -66,6 +66,19 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Divider
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -341,8 +354,19 @@ fun PocetniEkran(context: Context? = null) {
     if (showAddLijek) {
         LijekDialog(
             lijek = null,
+            existingLijekovi = lijekovi,
             onDismiss = { showAddLijek = false },
             onSave = { newLijek ->
+                // Kontrola duplikata (case-insensitive)
+                val duplicate = lijekovi.any {
+                    it.naziv.lowercase() == newLijek.naziv.lowercase()
+                }
+
+                if (duplicate) {
+                    showMessage = "Lijek s nazivom '${newLijek.naziv}' već postoji!"
+                    return@LijekDialog
+                }
+
                 val lijekWithId = newLijek.copy(id = idCounter++)
                 lijekovi.add(lijekWithId)
                 saveData()
@@ -355,8 +379,19 @@ fun PocetniEkran(context: Context? = null) {
     editLijek?.let { lijek ->
         LijekDialog(
             lijek = lijek,
+            existingLijekovi = lijekovi.filter { it.id != lijek.id },
             onDismiss = { editLijek = null },
             onSave = { updatedLijek ->
+                // Kontrola duplikata (case-insensitive), ali ignoriraj trenutni lijek
+                val duplicate = lijekovi.any {
+                    it.id != lijek.id && it.naziv.lowercase() == updatedLijek.naziv.lowercase()
+                }
+
+                if (duplicate) {
+                    showMessage = "Lijek s nazivom '${updatedLijek.naziv}' već postoji!"
+                    return@LijekDialog
+                }
+
                 val index = lijekovi.indexOfFirst { it.id == lijek.id }
                 if (index != -1) {
                     lijekovi[index] = updatedLijek
@@ -375,6 +410,29 @@ fun HomeScreen(
     onDeleteLijek: (Lijek) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // State za praćenje trenutno povučene kartice
+    var draggedLijek by remember { mutableStateOf<Lijek?>(null) }
+    var draggedTimeGroup by remember { mutableStateOf<DobaDana?>(null) }
+    var draggedOverIndex by remember { mutableStateOf<Int?>(null) }
+    var draggedFromIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Funkcija za spremanje novog redoslijeda
+    val saveReorderedList = { timeGroup: DobaDana, reorderedList: List<Lijek> ->
+        if (lijekovi is androidx.compose.runtime.snapshots.SnapshotStateList) {
+            reorderedList.forEachIndexed { index, lijek ->
+                val oldIndex = lijekovi.indexOfFirst { it.id == lijek.id }
+                if (oldIndex != -1) {
+                    val updatedLijek = when (timeGroup) {
+                        DobaDana.JUTRO -> lijek.copy(sortOrderJutro = index)
+                        DobaDana.POPODNE -> lijek.copy(sortOrderPopodne = index)
+                        DobaDana.VECER -> lijek.copy(sortOrderVecer = index)
+                    }
+                    lijekovi[oldIndex] = updatedLijek
+                }
+            }
+        }
+    }
+
     if (lijekovi.isEmpty()) {
         Box(
             modifier = modifier.fillMaxSize(),
@@ -410,13 +468,321 @@ fun HomeScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            lijekovi.forEach { lijek ->
-                LijekCard(
-                    lijek = lijek,
-                    onEdit = { onEditLijek(lijek) },
-                    onDelete = { onDeleteLijek(lijek) }
+            // Grupiraj i sortiraj lijekove po vremenu uzimanja
+            val jutarnjiLijekovi = lijekovi.filter { it.jutro }
+                .sortedBy { it.sortOrderJutro }
+            val popodnevniLijekovi = lijekovi.filter { it.popodne }
+                .sortedBy { it.sortOrderPopodne }
+            val vecernjiLijekovi = lijekovi.filter { it.vecer }
+                .sortedBy { it.sortOrderVecer }
+
+            // 🌞 JUTRO grupa
+            if (jutarnjiLijekovi.isNotEmpty()) {
+                TimeGroupHeader(
+                    icon = Icons.Default.WbSunny,
+                    label = "Jutro",
+                    time = "08:00",
+                    count = jutarnjiLijekovi.size,
+                    emoji = "🌞"
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+
+                jutarnjiLijekovi.forEachIndexed { index, lijek ->
+                    // Prikaži liniju prije kartice ako je ovo ciljna pozicija
+                    if (draggedTimeGroup == DobaDana.JUTRO &&
+                        draggedOverIndex == index &&
+                        draggedFromIndex != index &&
+                        draggedLijek?.id != lijek.id) {
+                        DropIndicatorLine()
+                    }
+
+                    ReorderableLijekCard(
+                        lijek = lijek,
+                        onEdit = { onEditLijek(lijek) },
+                        onDelete = { onDeleteLijek(lijek) },
+                        isDraggable = true,
+                        isDragging = draggedLijek?.id == lijek.id,
+                        isHoveredOver = draggedTimeGroup == DobaDana.JUTRO && draggedOverIndex == index,
+                        onDragStart = {
+                            draggedLijek = lijek
+                            draggedTimeGroup = DobaDana.JUTRO
+                            draggedFromIndex = index
+                        },
+                        onDragEnd = { offsetY ->
+                            draggedLijek?.let { dragged ->
+                                if (draggedTimeGroup == DobaDana.JUTRO && draggedFromIndex != null) {
+                                    val currentList = jutarnjiLijekovi.toMutableList()
+                                    val fromIndex = draggedFromIndex!!
+
+                                    // Bolja kalkulacija - koristi stvarni offset u pikselima
+                                    val itemHeightPx = 128 * 3 // približno 120dp kartice + 8dp razmak u pikselima
+                                    val moveCount = (offsetY / itemHeightPx).toInt()
+                                    var toIndex = fromIndex + moveCount
+
+                                    // Limitiraj na validne indekse
+                                    toIndex = toIndex.coerceIn(0, currentList.size - 1)
+
+                                    if (fromIndex != toIndex) {
+                                        val item = currentList.removeAt(fromIndex)
+                                        currentList.add(toIndex, item)
+                                        saveReorderedList(DobaDana.JUTRO, currentList)
+                                    }
+                                }
+                            }
+                            draggedLijek = null
+                            draggedTimeGroup = null
+                            draggedOverIndex = null
+                            draggedFromIndex = null
+                        },
+                        onDragPositionChange = { offsetY ->
+                            if (draggedFromIndex != null) {
+                                // Bolja kalkulacija za hover indikator
+                                val itemHeightPx = 128 * 3
+                                val moveCount = (offsetY / itemHeightPx).toInt()
+                                val newIndex = (draggedFromIndex!! + moveCount)
+                                    .coerceIn(0, jutarnjiLijekovi.size - 1)
+                                draggedOverIndex = newIndex
+                            }
+                        }
+                    )
+
+                    // Prikaži liniju nakon zadnje kartice
+                    if (draggedTimeGroup == DobaDana.JUTRO &&
+                        index == jutarnjiLijekovi.size - 1 &&
+                        draggedOverIndex == jutarnjiLijekovi.size &&
+                        draggedFromIndex != index) {
+                        DropIndicatorLine()
+                    }
+
+                    if (index < jutarnjiLijekovi.size - 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // 🌅 POPODNE grupa
+            if (popodnevniLijekovi.isNotEmpty()) {
+                TimeGroupHeader(
+                    icon = Icons.Default.WbTwilight,
+                    label = "Popodne",
+                    time = "14:00",
+                    count = popodnevniLijekovi.size,
+                    emoji = "🌅"
+                )
+
+                popodnevniLijekovi.forEachIndexed { index, lijek ->
+                    if (draggedTimeGroup == DobaDana.POPODNE &&
+                        draggedOverIndex == index &&
+                        draggedFromIndex != index &&
+                        draggedLijek?.id != lijek.id) {
+                        DropIndicatorLine()
+                    }
+
+                    ReorderableLijekCard(
+                        lijek = lijek,
+                        onEdit = { onEditLijek(lijek) },
+                        onDelete = { onDeleteLijek(lijek) },
+                        isDraggable = true,
+                        isDragging = draggedLijek?.id == lijek.id,
+                        isHoveredOver = draggedTimeGroup == DobaDana.POPODNE && draggedOverIndex == index,
+                        onDragStart = {
+                            draggedLijek = lijek
+                            draggedTimeGroup = DobaDana.POPODNE
+                            draggedFromIndex = index
+                        },
+                        onDragEnd = { offsetY ->
+                            draggedLijek?.let { dragged ->
+                                if (draggedTimeGroup == DobaDana.POPODNE && draggedFromIndex != null) {
+                                    val currentList = popodnevniLijekovi.toMutableList()
+                                    val fromIndex = draggedFromIndex!!
+
+                                    val itemHeightPx = 128 * 3
+                                    val moveCount = (offsetY / itemHeightPx).toInt()
+                                    var toIndex = fromIndex + moveCount
+                                    toIndex = toIndex.coerceIn(0, currentList.size - 1)
+
+                                    if (fromIndex != toIndex) {
+                                        val item = currentList.removeAt(fromIndex)
+                                        currentList.add(toIndex, item)
+                                        saveReorderedList(DobaDana.POPODNE, currentList)
+                                    }
+                                }
+                            }
+                            draggedLijek = null
+                            draggedTimeGroup = null
+                            draggedOverIndex = null
+                            draggedFromIndex = null
+                        },
+                        onDragPositionChange = { offsetY ->
+                            if (draggedFromIndex != null) {
+                                val itemHeightPx = 128 * 3
+                                val moveCount = (offsetY / itemHeightPx).toInt()
+                                val newIndex = (draggedFromIndex!! + moveCount)
+                                    .coerceIn(0, popodnevniLijekovi.size - 1)
+                                draggedOverIndex = newIndex
+                            }
+                        }
+                    )
+
+                    if (draggedTimeGroup == DobaDana.POPODNE &&
+                        index == popodnevniLijekovi.size - 1 &&
+                        draggedOverIndex == popodnevniLijekovi.size &&
+                        draggedFromIndex != index) {
+                        DropIndicatorLine()
+                    }
+
+                    if (index < popodnevniLijekovi.size - 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // 🌙 VEČER grupa
+            if (vecernjiLijekovi.isNotEmpty()) {
+                TimeGroupHeader(
+                    icon = Icons.Default.NightsStay,
+                    label = "Večer",
+                    time = "20:00",
+                    count = vecernjiLijekovi.size,
+                    emoji = "🌙"
+                )
+
+                vecernjiLijekovi.forEachIndexed { index, lijek ->
+                    if (draggedTimeGroup == DobaDana.VECER &&
+                        draggedOverIndex == index &&
+                        draggedFromIndex != index &&
+                        draggedLijek?.id != lijek.id) {
+                        DropIndicatorLine()
+                    }
+
+                    ReorderableLijekCard(
+                        lijek = lijek,
+                        onEdit = { onEditLijek(lijek) },
+                        onDelete = { onDeleteLijek(lijek) },
+                        isDraggable = true,
+                        isDragging = draggedLijek?.id == lijek.id,
+                        isHoveredOver = draggedTimeGroup == DobaDana.VECER && draggedOverIndex == index,
+                        onDragStart = {
+                            draggedLijek = lijek
+                            draggedTimeGroup = DobaDana.VECER
+                            draggedFromIndex = index
+                        },
+                        onDragEnd = { offsetY ->
+                            draggedLijek?.let { dragged ->
+                                if (draggedTimeGroup == DobaDana.VECER && draggedFromIndex != null) {
+                                    val currentList = vecernjiLijekovi.toMutableList()
+                                    val fromIndex = draggedFromIndex!!
+
+                                    val itemHeightPx = 128 * 3
+                                    val moveCount = (offsetY / itemHeightPx).toInt()
+                                    var toIndex = fromIndex + moveCount
+                                    toIndex = toIndex.coerceIn(0, currentList.size - 1)
+
+                                    if (fromIndex != toIndex) {
+                                        val item = currentList.removeAt(fromIndex)
+                                        currentList.add(toIndex, item)
+                                        saveReorderedList(DobaDana.VECER, currentList)
+                                    }
+                                }
+                            }
+                            draggedLijek = null
+                            draggedTimeGroup = null
+                            draggedOverIndex = null
+                            draggedFromIndex = null
+                        },
+                        onDragPositionChange = { offsetY ->
+                            if (draggedFromIndex != null) {
+                                val itemHeightPx = 128 * 3
+                                val moveCount = (offsetY / itemHeightPx).toInt()
+                                val newIndex = (draggedFromIndex!! + moveCount)
+                                    .coerceIn(0, vecernjiLijekovi.size - 1)
+                                draggedOverIndex = newIndex
+                            }
+                        }
+                    )
+
+                    if (draggedTimeGroup == DobaDana.VECER &&
+                        index == vecernjiLijekovi.size - 1 &&
+                        draggedOverIndex == vecernjiLijekovi.size &&
+                        draggedFromIndex != index) {
+                        DropIndicatorLine()
+                    }
+
+                    if (index < vecernjiLijekovi.size - 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Nova komponenta: Header za grupu lijekova po vremenu
+@Composable
+fun TimeGroupHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    time: String,
+    count: Int,
+    emoji: String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = emoji,
+                    style = MaterialTheme.typography.headlineMedium
+                )
+
+                Column {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = time,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            // Badge sa brojem lijekova
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                shape = androidx.compose.foundation.shape.CircleShape
+            ) {
+                Text(
+                    text = count.toString(),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
     }
@@ -609,6 +975,7 @@ fun LijekCard(
 @Composable
 fun LijekDialog(
     lijek: Lijek?,
+    existingLijekovi: List<Lijek> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (Lijek) -> Unit
 ) {
@@ -618,6 +985,8 @@ fun LijekDialog(
     var popodne by remember { mutableStateOf(lijek?.popodne ?: false) }
     var vecer by remember { mutableStateOf(lijek?.vecer ?: false) }
     var napomene by remember { mutableStateOf(lijek?.napomene ?: "") }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -627,88 +996,74 @@ fun LijekDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
                     value = naziv,
                     onValueChange = { naziv = it },
                     label = { Text("Naziv lijeka") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = showError && naziv.isBlank()
                 )
 
                 OutlinedTextField(
                     value = doza,
                     onValueChange = { doza = it },
                     label = { Text("Doza") },
-                    placeholder = { Text("npr. 1 tableta") },
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = { Text("npr. 1 tableta, 5mg") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = showError && doza.isBlank()
                 )
 
-                // Checkboxovi za vrijeme uzimanja
+                // 🎨 Kocke za odabir doba dana (prema TODO-u)
                 Text(
                     "Vrijeme uzimanja:",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
 
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { jutro = !jutro },
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    androidx.compose.material3.Checkbox(
-                        checked = jutro,
-                        onCheckedChange = { jutro = it }
+                    // Jutro kocka
+                    DobaBox(
+                        selected = jutro,
+                        onClick = { jutro = !jutro },
+                        icon = Icons.Default.WbSunny,
+                        label = "Jutro",
+                        time = "08:00",
+                        emoji = "🌞"
                     )
-                    Icon(
-                        Icons.Default.WbSunny,
-                        contentDescription = "Jutro",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
+
+                    // Popodne kocka
+                    DobaBox(
+                        selected = popodne,
+                        onClick = { popodne = !popodne },
+                        icon = Icons.Default.WbTwilight,
+                        label = "Popodne",
+                        time = "14:00",
+                        emoji = "🌅"
                     )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text("Jutro (08:00)")
+
+                    // Večer kocka
+                    DobaBox(
+                        selected = vecer,
+                        onClick = { vecer = !vecer },
+                        icon = Icons.Default.NightsStay,
+                        label = "Večer",
+                        time = "20:00",
+                        emoji = "🌙"
+                    )
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { popodne = !popodne },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.material3.Checkbox(
-                        checked = popodne,
-                        onCheckedChange = { popodne = it }
+                if (showError && !jutro && !popodne && !vecer) {
+                    Text(
+                        "Odaberite barem jedno vrijeme uzimanja",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
                     )
-                    Icon(
-                        Icons.Default.WbTwilight,
-                        contentDescription = "Popodne",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text("Popodne (14:00)")
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { vecer = !vecer },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.material3.Checkbox(
-                        checked = vecer,
-                        onCheckedChange = { vecer = it }
-                    )
-                    Icon(
-                        Icons.Default.NightsStay,
-                        contentDescription = "Večer",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text("Večer (20:00)")
                 }
 
                 OutlinedTextField(
@@ -717,32 +1072,54 @@ fun LijekDialog(
                     label = { Text("Napomene") },
                     placeholder = { Text("Dodatne informacije...") },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
+                    minLines = 2,
+                    maxLines = 4
                 )
+
+                if (showError && errorMessage.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (naziv.isNotBlank() && doza.isNotBlank()) {
-                        val newLijek = lijek?.copy(
-                            naziv = naziv,
-                            doza = doza,
-                            jutro = jutro,
-                            popodne = popodne,
-                            vecer = vecer,
-                            napomene = napomene
-                        ) ?: Lijek(
-                            id = 0, // Bit će postavljen u pozivnoj funkciji
-                            naziv = naziv,
-                            doza = doza,
-                            jutro = jutro,
-                            popodne = popodne,
-                            vecer = vecer,
-                            napomene = napomene
-                        )
-                        onSave(newLijek)
+                    // Validacija
+                    if (naziv.isBlank() || doza.isBlank() || (!jutro && !popodne && !vecer)) {
+                        showError = true
+                        errorMessage = "Sva polja moraju biti popunjena i barem jedno vrijeme odabrano"
+                        return@TextButton
                     }
+
+                    val newLijek = lijek?.copy(
+                        naziv = naziv,
+                        doza = doza,
+                        jutro = jutro,
+                        popodne = popodne,
+                        vecer = vecer,
+                        napomene = napomene
+                    ) ?: Lijek(
+                        id = 0,
+                        naziv = naziv,
+                        doza = doza,
+                        jutro = jutro,
+                        popodne = popodne,
+                        vecer = vecer,
+                        napomene = napomene
+                    )
+                    onSave(newLijek)
                 }
             ) {
                 Text("Spremi")
@@ -755,3 +1132,252 @@ fun LijekDialog(
         }
     )
 }
+
+// Nova komponenta: Kocka za odabir doba dana
+@Composable
+fun DobaBox(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    time: String,
+    emoji: String
+) {
+    Card(
+        modifier = Modifier
+            .size(100.dp)
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (selected) 8.dp else 2.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = emoji,
+                style = MaterialTheme.typography.headlineLarge
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = time,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// Nova komponenta: Kartica lijeka s drag-and-drop mogućnošću
+@Composable
+fun ReorderableLijekCard(
+    lijek: Lijek,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    isDraggable: Boolean = false,
+    isDragging: Boolean = false,
+    isHoveredOver: Boolean = false,
+    onDragStart: () -> Unit = {},
+    onDragEnd: (Float) -> Unit = {},
+    onDragPositionChange: (Float) -> Unit = {}
+) {
+    var offsetX by remember { mutableStateOf(0f) }
+    var offsetY by remember { mutableStateOf(0f) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+            .zIndex(if (isDragging) 1f else 0f)
+            .then(
+                if (isDraggable) {
+                    Modifier.pointerInput(Unit) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                onDragStart()
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                offsetX += dragAmount.x
+                                offsetY += dragAmount.y
+                                onDragPositionChange(offsetY)
+                            },
+                            onDragEnd = {
+                                onDragEnd(offsetY)
+                                offsetX = 0f
+                                offsetY = 0f
+                            },
+                            onDragCancel = {
+                                onDragEnd(0f)
+                                offsetX = 0f
+                                offsetY = 0f
+                            }
+                        )
+                    }
+                } else Modifier
+            )
+            .clickable { if (!isDragging) onEdit() },
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isDragging) 8.dp else 4.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isDragging -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
+                isHoveredOver -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.surface
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                // Drag handle indicator
+                if (isDraggable) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Drag handle",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = lijek.naziv,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = lijek.doza,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Uredi")
+                }
+            }
+
+            if (lijek.napomene.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = lijek.napomene,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (lijek.jutro) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.WbSunny,
+                            contentDescription = "Jutro",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = lijek.vrijemeJutro,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
+                if (lijek.popodne) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.WbTwilight,
+                            contentDescription = "Popodne",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = lijek.vrijemePopodne,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
+                if (lijek.vecer) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.NightsStay,
+                            contentDescription = "Večer",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = lijek.vrijemeVecer,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Nova komponenta: Placeholder za drop područje
+@Composable
+fun DropPlaceholder() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Ovdje ispustite za premještanje",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    }
+}
+
+// Nova komponenta: Linija indikatora za drop poziciju
+@Composable
+fun DropIndicatorLine() {
+    Divider(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(2.dp)
+            .padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+

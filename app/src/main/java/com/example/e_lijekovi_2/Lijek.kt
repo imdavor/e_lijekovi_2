@@ -95,7 +95,12 @@ data class Lijek(
     val intervalnoUzimanje: IntervalnoUzimanje? = null,
 
     val napomene: String = "",
-    val boja: String = "#4CAF50" // Default zelena boja
+    val boja: String = "#4CAF50", // Default zelena boja
+
+    // Za redoslijed prikaza unutar vremenske grupe
+    val sortOrderJutro: Int = 0,
+    val sortOrderPopodne: Int = 0,
+    val sortOrderVecer: Int = 0
 ) {
     // Generiraj sva vremena uzimanja za današnji dan
     fun generirajVremenaZaDanas(): List<String> {

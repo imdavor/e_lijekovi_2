@@ -2,10 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permisije za export/import datoteka -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
+    <!-- Storage Access Framework (SAF) ne zahtijeva dozvole -->
+    <!-- Uklonili smo zastarjele READ_EXTERNAL_STORAGE i WRITE_EXTERNAL_STORAGE -->
 
     <application
         android:allowBackup="true"
@@ -20,8 +18,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.E_lijekovi_2">
+            android:theme="@style/Theme.E_lijekovi_2"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

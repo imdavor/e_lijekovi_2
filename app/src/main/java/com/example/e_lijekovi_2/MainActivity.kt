@@ -130,6 +130,7 @@ fun PocetniEkran(context: Context? = null) {
                     lijekovi.addAll(importedLijekovi)
                     // Ažuriraj idCounter da bude veći od najvećeg ID-a
                     idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
+                    currentScreen = "home" // Prebaci na ekran liste
                     showMessage = "Podaci uspješno importirani! Učitano ${importedLijekovi.size} lijekova."
                 } else {
                     showMessage = "Greška pri importu podataka!"

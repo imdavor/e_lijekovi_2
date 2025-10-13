@@ -448,12 +448,14 @@ fun StatisticsScreen(
 @Composable
 fun SettingsScreen(
     onExportImport: () -> Unit,
+    onTestImport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             "Postavke",
@@ -466,6 +468,39 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Upravljanje podacima")
+        }
+
+        Button(
+            onClick = onTestImport,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary
+            )
+        ) {
+            Text("🔍 Test Import funkcionalnosti")
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    "ℹ️ Pomoć za Import",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    "• Datoteka mora biti .json format\n" +
+                    "• JSON mora biti array [ ... ]\n" +
+                    "• Struktura mora odgovarati Lijek klasi\n" +
+                    "• Koristite 'Test Import' za provjeru",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }
@@ -797,16 +832,42 @@ fun PocetniEkran(context: Context? = null) {
     ) { uri ->
         uri?.let {
             context?.let { ctx ->
-                val importedLijekovi = LijekoviDataManager.loadFromFile(ctx, it)
-                if (importedLijekovi != null) {
-                    lijekovi.clear()
-                    lijekovi.addAll(importedLijekovi)
-                    idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
-                    saveData()
-                    currentScreen = "home"
-                    showMessage = "Podaci uspješno importirani! Učitano ${importedLijekovi.size} lijekova."
-                } else {
-                    showMessage = "Greška pri importu podataka!"
+                try {
+                    val importedLijekovi = LijekoviDataManager.loadFromFile(ctx, it)
+                    if (importedLijekovi != null) {
+                        lijekovi.clear()
+                        lijekovi.addAll(importedLijekovi)
+                        idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
+                        saveData()
+                        currentScreen = "home"
+                        showMessage = "✅ Podaci uspješno importirani!\n\nUčitano ${importedLijekovi.size} lijekova."
+                    } else {
+                        // Detaljnije poruke o grešci
+                        showMessage = """
+                            ❌ Greška pri importu podataka!
+                            
+                            Mogući uzroci:
+                            • Datoteka nije valjani JSON format
+                            • JSON ne odgovara strukturi aplikacije  
+                            • Datoteka je oštećena ili prazna
+                            • Nema dozvolu za čitanje datoteke
+                            
+                            💡 Savjet: Pokušajte exportirati podatke iz aplikacije pa ih importirati nazad da testirate format.
+                            
+                            🔍 Za detaljne informacije provjerite Logcat (filtriraj: LijekoviDataManager)
+                        """.trimIndent()
+                    }
+                } catch (e: Exception) {
+                    showMessage = """
+                        ❌ Neočekivana greška pri importu!
+                        
+                        Greška: ${e.message ?: "Nepoznata greška"}
+                        
+                        💡 Provjerite:
+                        • Je li datoteka ispravno eksportirana iz aplikacije
+                        • Imate li dozvolu za čitanje datoteke
+                        • Nije li datoteka oštećena
+                    """.trimIndent()
                 }
             }
         }
@@ -987,6 +1048,26 @@ fun PocetniEkran(context: Context? = null) {
                 "settings" -> {
                     SettingsScreen(
                         onExportImport = { showExportImportDialog = true },
+                        onTestImport = {
+                            // Test import funkcionalnosti
+                            context?.let { ctx ->
+                                val testUri = android.net.Uri.parse("android.resource://${ctx.packageName}/raw/test_lijekovi.json")
+                                try {
+                                    val importedLijekovi = LijekoviDataManager.loadFromFile(ctx, testUri)
+                                    if (importedLijekovi != null) {
+                                        lijekovi.clear()
+                                        lijekovi.addAll(importedLijekovi)
+                                        idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
+                                        saveData()
+                                        showMessage = "✅ Test podaci uspješno importirani!\n\nUčitano ${importedLijekovi.size} lijekova."
+                                    } else {
+                                        showMessage = "❌ Greška pri učitavanju test podataka!"
+                                    }
+                                } catch (e: Exception) {
+                                    showMessage = "❌ Neočekivana greška: ${e.message}"
+                                }
+                            }
+                        },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }

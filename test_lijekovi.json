@@ -1,0 +1,41 @@
+[
+  {
+    "id": 1,
+    "naziv": "Test Aspirin",
+    "doza": "100mg",
+    "tipUzimanja": "STANDARDNO",
+    "jutro": true,
+    "popodne": false,
+    "vecer": false,
+    "vrijemeJutro": "08:00",
+    "vrijemePopodne": "14:00",
+    "vrijemeVecer": "20:00",
+    "intervalnoUzimanje": null,
+    "napomene": "Test lijek za provjeru importa",
+    "boja": "#4CAF50",
+    "pakiranje": 30,
+    "sortOrderJutro": 0,
+    "sortOrderPopodne": 0,
+    "sortOrderVecer": 0
+  },
+  {
+    "id": 2,
+    "naziv": "Test Vitamin C",
+    "doza": "500mg",
+    "tipUzimanja": "STANDARDNO",
+    "jutro": false,
+    "popodne": true,
+    "vecer": true,
+    "vrijemeJutro": "08:00",
+    "vrijemePopodne": "14:00",
+    "vrijemeVecer": "20:00",
+    "intervalnoUzimanje": null,
+    "napomene": "Test vitamin",
+    "boja": "#FF9800",
+    "pakiranje": 60,
+    "sortOrderJutro": 0,
+    "sortOrderPopodne": 0,
+    "sortOrderVecer": 0
+  }
+]
+

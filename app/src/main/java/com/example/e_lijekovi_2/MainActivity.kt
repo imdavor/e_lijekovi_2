@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -513,32 +514,9 @@ fun HomeScreen(
     lijekovi: List<Lijek>,
     onEditLijek: (Lijek) -> Unit,
     onDeleteLijek: (Lijek) -> Unit,
+    onReorder: (DobaDana, Int, Int) -> Unit, // (grupa, fromId, toId)
     modifier: Modifier = Modifier
 ) {
-    // State za praćenje trenutno povučene kartice
-    var draggedLijek by remember { mutableStateOf<Lijek?>(null) }
-    var draggedTimeGroup by remember { mutableStateOf<DobaDana?>(null) }
-    var draggedOverIndex by remember { mutableStateOf<Int?>(null) }
-    var draggedFromIndex by remember { mutableStateOf<Int?>(null) }
-    var cumulativeDragOffset by remember { mutableStateOf(0f) }
-
-    // Funkcija za spremanje novog redoslijeda
-    val saveReorderedList = { timeGroup: DobaDana, reorderedList: List<Lijek> ->
-        if (lijekovi is androidx.compose.runtime.snapshots.SnapshotStateList) {
-            reorderedList.forEachIndexed { index, lijek ->
-                val oldIndex = lijekovi.indexOfFirst { it.id == lijek.id }
-                if (oldIndex != -1) {
-                    val updatedLijek = when (timeGroup) {
-                        DobaDana.JUTRO -> lijek.copy(sortOrderJutro = index)
-                        DobaDana.POPODNE -> lijek.copy(sortOrderPopodne = index)
-                        DobaDana.VECER -> lijek.copy(sortOrderVecer = index)
-                    }
-                    lijekovi[oldIndex] = updatedLijek
-                }
-            }
-        }
-    }
-
     if (lijekovi.isEmpty()) {
         Box(
             modifier = modifier.fillMaxSize(),
@@ -594,11 +572,32 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                jutarnjiLijekovi.forEach { lijek ->
+                jutarnjiLijekovi.forEachIndexed { index, lijek ->
+                    var dy by remember(lijek.id) { mutableStateOf(0f) }
+                    val threshold = 30f
                     LijekCard(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) }
+                        onDelete = { onDeleteLijek(lijek) },
+                        modifier = Modifier
+                            .pointerInput(lijek.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragEnd = { dy = 0f },
+                                    onDragCancel = { dy = 0f }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    dy += dragAmount.y
+                                    if (dy <= -threshold && index > 0) {
+                                        val prevId = jutarnjiLijekovi[index - 1].id
+                                        onReorder(DobaDana.JUTRO, lijek.id, prevId)
+                                        dy = 0f
+                                    } else if (dy >= threshold && index < jutarnjiLijekovi.size - 1) {
+                                        val nextId = jutarnjiLijekovi[index + 1].id
+                                        onReorder(DobaDana.JUTRO, lijek.id, nextId)
+                                        dy = 0f
+                                    }
+                                }
+                            }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -616,11 +615,32 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                popodnevniLijekovi.forEach { lijek ->
+                popodnevniLijekovi.forEachIndexed { index, lijek ->
+                    var dy by remember(lijek.id) { mutableStateOf(0f) }
+                    val threshold = 30f
                     LijekCard(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) }
+                        onDelete = { onDeleteLijek(lijek) },
+                        modifier = Modifier
+                            .pointerInput(lijek.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragEnd = { dy = 0f },
+                                    onDragCancel = { dy = 0f }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    dy += dragAmount.y
+                                    if (dy <= -threshold && index > 0) {
+                                        val prevId = popodnevniLijekovi[index - 1].id
+                                        onReorder(DobaDana.POPODNE, lijek.id, prevId)
+                                        dy = 0f
+                                    } else if (dy >= threshold && index < popodnevniLijekovi.size - 1) {
+                                        val nextId = popodnevniLijekovi[index + 1].id
+                                        onReorder(DobaDana.POPODNE, lijek.id, nextId)
+                                        dy = 0f
+                                    }
+                                }
+                            }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -638,11 +658,32 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                vecernjiLijekovi.forEach { lijek ->
+                vecernjiLijekovi.forEachIndexed { index, lijek ->
+                    var dy by remember(lijek.id) { mutableStateOf(0f) }
+                    val threshold = 30f
                     LijekCard(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) }
+                        onDelete = { onDeleteLijek(lijek) },
+                        modifier = Modifier
+                            .pointerInput(lijek.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragEnd = { dy = 0f },
+                                    onDragCancel = { dy = 0f }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    dy += dragAmount.y
+                                    if (dy <= -threshold && index > 0) {
+                                        val prevId = vecernjiLijekovi[index - 1].id
+                                        onReorder(DobaDana.VECER, lijek.id, prevId)
+                                        dy = 0f
+                                    } else if (dy >= threshold && index < vecernjiLijekovi.size - 1) {
+                                        val nextId = vecernjiLijekovi[index + 1].id
+                                        onReorder(DobaDana.VECER, lijek.id, nextId)
+                                        dy = 0f
+                                    }
+                                }
+                            }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }
@@ -666,12 +707,7 @@ fun HomeScreen(
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
                         onDoseTaken = { scheduledTime, actualTime ->
-                            val index = lijekovi.indexOfFirst { it.id == lijek.id }
-                            if (index != -1 && lijekovi is MutableList) {
-                                val updatedInterval = lijek.intervalnoUzimanje?.oznaciDozuUzeta(scheduledTime, actualTime)
-                                val updatedLijek = lijek.copy(intervalnoUzimanje = updatedInterval)
-                                lijekovi[index] = updatedLijek
-                            }
+                            // Ovo će biti obrađeno u parentu kroz ažuriranje state-a
                         }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -698,6 +734,40 @@ fun PocetniEkran(context: Context? = null) {
         context?.let { ctx ->
             LijekoviDataManager.saveToLocalStorage(ctx, lijekovi)
         }
+    }
+
+    // Reordering helper
+    val onReorder: (DobaDana, Int, Int) -> Unit = onReorder@{ grupa, fromId, toId ->
+        // Filtriraj grupu i složi po sortOrderu
+        val groupList = when (grupa) {
+            DobaDana.JUTRO -> lijekovi.filter { it.jutro && it.tipUzimanja == TipUzimanja.STANDARDNO }
+                .sortedBy { it.sortOrderJutro }
+            DobaDana.POPODNE -> lijekovi.filter { it.popodne && it.tipUzimanja == TipUzimanja.STANDARDNO }
+                .sortedBy { it.sortOrderPopodne }
+            DobaDana.VECER -> lijekovi.filter { it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
+                .sortedBy { it.sortOrderVecer }
+        }.toMutableList()
+
+        val fromIndex = groupList.indexOfFirst { it.id == fromId }
+        val toIndex = groupList.indexOfFirst { it.id == toId }
+        if (fromIndex == -1 || toIndex == -1) return@onReorder
+
+        val moved = groupList.removeAt(fromIndex)
+        groupList.add(toIndex, moved)
+
+        // Ažuriraj sortOrder polja u originalnoj listi
+        groupList.forEachIndexed { idx, l ->
+            val globalIndex = lijekovi.indexOfFirst { it.id == l.id }
+            if (globalIndex != -1) {
+                val updated = when (grupa) {
+                    DobaDana.JUTRO -> l.copy(sortOrderJutro = idx)
+                    DobaDana.POPODNE -> l.copy(sortOrderPopodne = idx)
+                    DobaDana.VECER -> l.copy(sortOrderVecer = idx)
+                }
+                lijekovi[globalIndex] = updated
+            }
+        }
+        saveData()
     }
 
     LaunchedEffect(Unit) {
@@ -904,6 +974,7 @@ fun PocetniEkran(context: Context? = null) {
                             lijekovi.remove(lijek)
                             saveData()
                         },
+                        onReorder = onReorder,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }

@@ -2,11 +2,13 @@ package com.example.e_lijekovi_2
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 
 object LijekoviDataManager {
+    private const val TAG = "LijekoviDataManager"
     private val json = Json {
         prettyPrint = true
         ignoreUnknownKeys = true // omogućava import starijih verzija ako dodamo nova polja
@@ -72,9 +74,17 @@ object LijekoviDataManager {
         return try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 val jsonString = inputStream.bufferedReader().readText()
-                importFromJson(jsonString)
+                Log.d(TAG, "Učitan JSON string duljine: ${jsonString.length}")
+                Log.d(TAG, "Prvih 200 znakova: ${jsonString.take(200)}")
+
+                val result = importFromJson(jsonString)
+                Log.d(TAG, "Uspješno učitano ${result.size} lijekova")
+                result
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Greška pri učitavanju iz datoteke", e)
+            Log.e(TAG, "Tip greške: ${e.javaClass.simpleName}")
+            Log.e(TAG, "Poruka: ${e.message}")
             e.printStackTrace()
             null
         }
@@ -91,7 +101,12 @@ object LijekoviDataManager {
      * Importira listu lijekova iz JSON stringa
      */
     private fun importFromJson(jsonString: String): List<Lijek> {
-        return Json.decodeFromString<List<Lijek>>(jsonString)
+        return try {
+            json.decodeFromString<List<Lijek>>(jsonString)
+        } catch (e: Exception) {
+            Log.e(TAG, "Greška pri parsiranju JSON-a", e)
+            throw e
+        }
     }
 
     /**

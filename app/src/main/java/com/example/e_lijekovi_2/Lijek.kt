@@ -36,17 +36,24 @@ data class IntervalnoUzimanje(
     val trajanjeDana: Int = 7, // Koliko dana se uzima lijek
     val complianceHistory: List<UzimanjeRecord> = emptyList() // Povijest uzimanja za compliance tracking
 ) {
-    // Helperi: kreiraj formatera po potrebi kako bi izbjegli serializaciju ne-serializabilnih tipova
-    private fun dateTimeFormat() = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
-    private fun dateFormat() = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
-    private fun timeFormat() = SimpleDateFormat("HH:mm", Locale.getDefault())
+    // Companion object sa konstante formatera umesto instance varijabli
+    companion object {
+        private const val DATE_TIME_PATTERN = "dd-MM-yyyy HH:mm"
+        private const val DATE_PATTERN = "dd-MM-yyyy"
+        private const val TIME_PATTERN = "HH:mm"
+
+        // Helper funkcije koje kreiraju formatere kad god su potrebni
+        private fun createDateTimeFormat() = SimpleDateFormat(DATE_TIME_PATTERN, Locale.getDefault())
+        private fun createDateFormat() = SimpleDateFormat(DATE_PATTERN, Locale.getDefault())
+        private fun createTimeFormat() = SimpleDateFormat(TIME_PATTERN, Locale.getDefault())
+    }
 
     // Dobij početno vrijeme kao Calendar
     private fun getStartCalendar(): Calendar {
         val calendar = Calendar.getInstance()
         if (startDateTime.isNotEmpty()) {
             try {
-                calendar.time = dateTimeFormat().parse(startDateTime) ?: Date()
+                calendar.time = createDateTimeFormat().parse(startDateTime) ?: Date()
             } catch (e: Exception) {
                 // Fallback na trenutno vrijeme ako parsing fail-a
             }
@@ -57,7 +64,7 @@ data class IntervalnoUzimanje(
     // Generiraj sva planirana vremena uzimanja za određeni dan
     fun generirajVremenaZaDan(date: String): List<String> {
         val vremena = mutableListOf<String>()
-        val targetDate = dateFormat().parse(date) ?: return emptyList()
+        val targetDate = createDateFormat().parse(date) ?: return emptyList()
         val startCal = getStartCalendar()
 
         // Provjeri je li terapija aktivna za ovaj dan
@@ -79,7 +86,7 @@ data class IntervalnoUzimanje(
         krajDana.set(Calendar.SECOND, 59)
 
         while (dayCal.timeInMillis <= krajDana.timeInMillis) {
-            vremena.add(timeFormat().format(dayCal.time))
+            vremena.add(createTimeFormat().format(dayCal.time))
             dayCal.add(Calendar.HOUR_OF_DAY, intervalSati)
         }
 
@@ -88,14 +95,14 @@ data class IntervalnoUzimanje(
 
     // Generiraj vremena uzimanja za današnji dan
     fun generirajVremenaZaDanas(): List<String> {
-        val today = dateFormat().format(Date())
+        val today = createDateFormat().format(Date())
         return generirajVremenaZaDan(today)
     }
 
     // Sljedeće vrijeme uzimanja
     fun sljedeceVrijeme(): String? {
         val sada = Calendar.getInstance()
-        val today = dateFormat().format(Date())
+        val today = createDateFormat().format(Date())
         val vremenaZaDanas = generirajVremenaZaDan(today)
 
         for (vrijeme in vremenaZaDanas) {
@@ -115,8 +122,8 @@ data class IntervalnoUzimanje(
 
     // Označi dozu kao uzeta
     fun oznaciDozuUzeta(scheduledTime: String, actualTime: String? = null): IntervalnoUzimanje {
-        val today = dateFormat().format(Date())
-        val actual = actualTime ?: timeFormat().format(Date())
+        val today = createDateFormat().format(Date())
+        val actual = actualTime ?: createTimeFormat().format(Date())
 
         // Provjeri je li kasno (>30 min)
         val isLateTaking = if (actualTime != null) {
@@ -151,7 +158,7 @@ data class IntervalnoUzimanje(
     fun getComplianceStats(days: Int = 30): ComplianceStats {
         val cutoffDate = Calendar.getInstance()
         cutoffDate.add(Calendar.DAY_OF_MONTH, -days)
-        val cutoffString = dateFormat().format(cutoffDate.time)
+        val cutoffString = createDateFormat().format(cutoffDate.time)
 
         val relevantRecords = complianceHistory.filter { it.date >= cutoffString }
 
@@ -175,7 +182,7 @@ data class IntervalnoUzimanje(
 
     // Provjeri je li doza već uzeta danas
     fun jeDozuUzetaDanas(scheduledTime: String): Boolean {
-        val today = dateFormat().format(Date())
+        val today = createDateFormat().format(Date())
         return complianceHistory.any { it.date == today && it.scheduledTime == scheduledTime && it.actualTime != null }
     }
 

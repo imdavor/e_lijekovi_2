@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -562,7 +564,7 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    Icons.Default.Medication,
+                    Icons.Default.LocalPharmacy, // Zamenio Medication sa LocalPharmacy
                     contentDescription = null,
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.primary
@@ -599,7 +601,7 @@ fun HomeScreen(
             // 🌞 JUTRO grupa
             if (jutarnjiLijekovi.isNotEmpty()) {
                 TimeGroupHeader(
-                    icon = Icons.Default.WbSunny,
+                    icon = Icons.Default.LightMode, // Zamenio WbSunny sa LightMode
                     label = "Jutro",
                     time = "08:00",
                     count = jutarnjiLijekovi.size,
@@ -642,7 +644,7 @@ fun HomeScreen(
             // 🌅 POPODNE grupa
             if (popodnevniLijekovi.isNotEmpty()) {
                 TimeGroupHeader(
-                    icon = Icons.Default.WbTwilight,
+                    icon = Icons.Default.LightMode, // Zamenio WbTwilight6 sa LightMode
                     label = "Popodne",
                     time = "14:00",
                     count = popodnevniLijekovi.size,
@@ -685,7 +687,7 @@ fun HomeScreen(
             // 🌙 VEČER grupa
             if (vecernjiLijekovi.isNotEmpty()) {
                 TimeGroupHeader(
-                    icon = Icons.Default.NightsStay,
+                    icon = Icons.Default.DarkMode, // Zamenio NightsStay sa DarkMode
                     label = "Večer",
                     time = "20:00",
                     count = vecernjiLijekovi.size,
@@ -956,7 +958,7 @@ fun PocetniEkran(context: Context? = null) {
                     )
 
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.BarChart, contentDescription = "Statistike") },
+                        icon = { Icon(Icons.Default.Analytics, contentDescription = "Statistike") }, // Zamenio BarChart sa Analytics
                         label = { Text("Statistike") },
                         selected = currentScreen == "statistics",
                         onClick = {

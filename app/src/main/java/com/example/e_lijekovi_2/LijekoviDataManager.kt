@@ -140,7 +140,19 @@ object LijekoviDataManager {
     private fun importFromJson(jsonString: String): List<Lijek> {
         return try {
             Log.d(TAG, "Pokušavam parsirati JSON...")
-            val result = json.decodeFromString<List<Lijek>>(jsonString)
+
+            // Prvo očisti JSON string od mogućih problema
+            val cleanedJson = cleanJsonString(jsonString)
+            Log.d(TAG, "Očišćen JSON duljine: ${cleanedJson.length}")
+
+            // Validacija prije parsiranja
+            val validation = validateJsonString(cleanedJson)
+            if (!validation.isValid) {
+                Log.e(TAG, "JSON validacija neuspješna: ${validation.message}")
+                throw SerializationException("Nevažeći JSON format: ${validation.message}")
+            }
+
+            val result = json.decodeFromString<List<Lijek>>(cleanedJson)
 
             // Dodatna provjera rezultata
             result.forEach { lijek ->
@@ -154,10 +166,66 @@ object LijekoviDataManager {
         } catch (e: SerializationException) {
             Log.e(TAG, "SerializationException pri parsiranju JSON-a", e)
             Log.e(TAG, "Možda nedostaju polja ili su u krivom formatu")
+            Log.e(TAG, "JSON fragment oko greške: ${extractErrorContext(jsonString, e.message)}")
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Opća greška pri parsiranju JSON-a", e)
             throw e
+        }
+    }
+
+    /**
+     * Čisti JSON string od čestih problema
+     */
+    private fun cleanJsonString(jsonString: String): String {
+        var cleaned = jsonString.trim()
+
+        // Ukloni BOM (Byte Order Mark) ako postoji
+        if (cleaned.startsWith("\uFEFF")) {
+            cleaned = cleaned.substring(1)
+        }
+
+        // Popravi česti problem sa ']rue' umesto 'true'
+        cleaned = cleaned.replace("]rue", "true")
+        cleaned = cleaned.replace("]alse", "false")
+
+        // Popravi duplirane znakove na krajevima
+        while (cleaned.endsWith("]]") && cleaned.count { it == ']' } > cleaned.count { it == '[' }) {
+            cleaned = cleaned.dropLast(1)
+        }
+
+        // Provjeri da li postoje nepotrebni znakovi nakon zatvaranja JSON-a
+        val lastBracket = cleaned.lastIndexOf(']')
+        if (lastBracket != -1 && lastBracket < cleaned.length - 1) {
+            val afterBracket = cleaned.substring(lastBracket + 1).trim()
+            if (afterBracket.isNotEmpty()) {
+                Log.w(TAG, "Pronađeni nepotrebni znakovi nakon JSON-a: '$afterBracket'")
+                cleaned = cleaned.substring(0, lastBracket + 1)
+            }
+        }
+
+        return cleaned
+    }
+
+    /**
+     * Izvuci kontekst oko greške za debugging
+     */
+    private fun extractErrorContext(jsonString: String, errorMessage: String?): String {
+        return try {
+            // Pokušaj pronaći offset iz error message
+            val offsetMatch = Regex("offset (\\d+)").find(errorMessage ?: "")
+            val offset = offsetMatch?.groupValues?.get(1)?.toIntOrNull()
+
+            if (offset != null && offset < jsonString.length) {
+                val start = maxOf(0, offset - 50)
+                val end = minOf(jsonString.length, offset + 50)
+                val context = jsonString.substring(start, end)
+                "...${context}... (around position $offset)"
+            } else {
+                "Last 100 characters: ${jsonString.takeLast(100)}"
+            }
+        } catch (e: Exception) {
+            "Cannot extract error context: ${e.message}"
         }
     }
 

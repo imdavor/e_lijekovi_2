@@ -2,6 +2,23 @@
 
 # e-lijekovi - TODO Lista za Razvoj
 
+## 📦 VERZIONIRANJE SISTEM
+**Trenutna verzija**: 1.1.0 (versionCode: 2)
+**Sledeća verzija**: 1.1.1 (PATCH - bug fixes)
+
+📋 **Tracking fajlovi**:
+- `CHANGELOG.md` - Kompletna istorija svih verzija
+- `VERSION_TRACKER.md` - Aktivno praćenje izmena u toku
+- `build.gradle.kts` - Automatsko ažuriranje versionCode/versionName
+
+🔄 **Workflow**:
+1. Sve izmene se dodaju u VERSION_TRACKER.md
+2. Na release se prebacuju u CHANGELOG.md  
+3. Verzija se ažurira u build.gradle.kts
+4. Git tag se kreira za verziju
+
+---
+
 ## ✅ NAJNOVIJI USPJESI (Listopad 2025)
 
 ### 🎯 **NAJNOVIJI VELIKI UPDATE - Schedule Tracking Sistem** (9.10.2025)
@@ -422,4 +439,3 @@
 - **Web compatibility** - Improved cross-platform file handling i UI components
 - **Error boundary** - Bolje error handling s detaljnim stack trace logovanjem
 - **Platform detection** - Smart behavior na osnovu platforme (web vs mobile)
-

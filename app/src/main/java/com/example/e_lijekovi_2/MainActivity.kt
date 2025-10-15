@@ -4,11 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,15 +23,30 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.zIndex
+import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Context
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -387,6 +406,7 @@ fun IntervalLijekCard(
 }
 
 // Dialog za dodavanje/uređivanje lijeka
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LijekDialog(
     lijek: Lijek?,
@@ -396,7 +416,6 @@ fun LijekDialog(
 ) {
     var naziv by remember { mutableStateOf(lijek?.naziv ?: "") }
     var doza by remember { mutableStateOf(lijek?.doza ?: "") }
-    var napomene by remember { mutableStateOf(lijek?.napomene ?: "") }
     var jutro by remember { mutableStateOf(lijek?.jutro ?: false) }
     var popodne by remember { mutableStateOf(lijek?.popodne ?: false) }
     var vecer by remember { mutableStateOf(lijek?.vecer ?: false) }
@@ -451,70 +470,81 @@ fun LijekDialog(
                     )
                 }
 
-                OutlinedTextField(
-                    value = napomene,
-                    onValueChange = { napomene = it },
-                    label = { Text("Napomene") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
                 Text("Vrijeme uzimanja:", fontWeight = FontWeight.Medium)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Toggle button za jutro
-                    Button(
+                    // Toggle kocka za jutro
+                    Card(
                         onClick = { jutro = !jutro },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (jutro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            contentColor = if (jutro) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (jutro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (jutro) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (jutro) 6.dp else 2.dp
                         )
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("🌞")
-                            Text("Jutro")
+                            Text("🌞", fontSize = 24.sp)
+                            Text("Jutro", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
                     }
 
-                    // Toggle button za podne
-                    Button(
+                    // Toggle kocka za podne
+                    Card(
                         onClick = { popodne = !popodne },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (popodne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            contentColor = if (popodne) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (popodne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (popodne) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (popodne) 6.dp else 2.dp
                         )
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("🌅")
-                            Text("Podne")
+                            Text("☀️", fontSize = 24.sp)
+                            Text("Podne", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
                     }
 
-                    // Toggle button za večer
-                    Button(
+                    // Toggle kocka za večer
+                    Card(
                         onClick = { vecer = !vecer },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (vecer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            contentColor = if (vecer) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (vecer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (vecer) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (vecer) 6.dp else 2.dp
                         )
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text("🌙")
-                            Text("Večer")
+                            Text("🌙", fontSize = 24.sp)
+                            Text("Večer", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -716,7 +746,7 @@ fun LijekDialog(
                             id = lijek?.id ?: 0,
                             naziv = naziv.trim(),
                             doza = doza.trim(),
-                            napomene = napomene.trim(),
+                            napomene = lijek?.napomene ?: "", // Keep existing napomene or empty string
                             jutro = jutro,
                             popodne = popodne,
                             vecer = vecer,
@@ -954,7 +984,7 @@ fun HomeScreen(
                 jutarnjiLijekovi.forEachIndexed { index, lijek ->
                     var dy by remember(lijek.id) { mutableStateOf(0f) }
                     val threshold = 30f
-                    LijekCard(
+                    WalletStyleCard(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
@@ -997,7 +1027,7 @@ fun HomeScreen(
                 popodnevniLijekovi.forEachIndexed { index, lijek ->
                     var dy by remember(lijek.id) { mutableStateOf(0f) }
                     val threshold = 30f
-                    LijekCard(
+                    WalletStyleCard(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
@@ -1040,7 +1070,7 @@ fun HomeScreen(
                 vecernjiLijekovi.forEachIndexed { index, lijek ->
                     var dy by remember(lijek.id) { mutableStateOf(0f) }
                     val threshold = 30f
-                    LijekCard(
+                    WalletStyleCard(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
@@ -1096,11 +1126,498 @@ fun HomeScreen(
     }
 }
 
+// Google Wallet stil draggable kartice lijeka
+@Composable
+fun DraggableLijekCard(
+    lijek: Lijek,
+    isDragging: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onRefill: () -> Unit,
+    onDragStart: () -> Unit,
+    onDragEnd: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptics = LocalHapticFeedback.current
+    val isLowStock = lijek.trenutnoStanje <= 7
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
+    val maxSwipeDistance = 200f
+
+    // Animacije za drag state
+    val scale by animateFloatAsState(
+        targetValue = if (isDragging) 1.05f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "card_scale"
+    )
+
+    val elevation by animateDpAsState(
+        targetValue = if (isDragging) 16.dp else 4.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "card_elevation"
+    )
+
+    val rotation by animateFloatAsState(
+        targetValue = if (isDragging) (offsetX * 0.01f).coerceIn(-3f, 3f) else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "card_rotation"
+    )
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .shadow(elevation, RoundedCornerShape(12.dp))
+            .graphicsLayer {
+                translationX = offsetX
+                translationY = offsetY
+                rotationZ = rotation
+            }
+            .zIndex(if (isDragging) 1f else 0f)
+            .pointerInput(lijek.id) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onDragStart()
+                    },
+                    onDragEnd = {
+                        when {
+                            offsetX < -maxSwipeDistance -> {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onDelete()
+                            }
+                            offsetX > maxSwipeDistance -> {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onRefill()
+                            }
+                        }
+                        offsetX = 0f
+                        offsetY = 0f
+                        onDragEnd()
+                    },
+                    onDragCancel = {
+                        offsetX = 0f
+                        offsetY = 0f
+                        onDragEnd()
+                    }
+                ) { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetY += dragAmount.y
+
+                    // Ograniči horizontalni swipe
+                    offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
+                    // Ograniči vertikalni drag
+                    offsetY = offsetY.coerceIn(-100f, 100f)
+                }
+            }
+            .clickable(enabled = !isDragging) { onEdit() },
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isDragging -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
+                offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                offsetX > 50f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                isLowStock -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+                else -> MaterialTheme.colorScheme.surface
+            }
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box {
+            // Glavni sadržaj kartice
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                // Drag handle indicator (visible tijekom dragginga)
+                AnimatedVisibility(
+                    visible = isDragging,
+                    enter = fadeIn() + scaleIn(),
+                    exit = fadeOut() + scaleOut()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(40.dp)
+                                .height(4.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    RoundedCornerShape(2.dp)
+                                )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = lijek.naziv,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (isLowStock) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.padding(0.dp)
+                        ) {
+                            Text(
+                                text = "⚠️ NARUČI",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onError,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = lijek.doza,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Prikaz trenutnog stanja
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "💊 Stanje:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${lijek.trenutnoStanje}/${lijek.pakiranje}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isLowStock)
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                if (lijek.napomene.isNotEmpty()) {
+                    Text(
+                        text = lijek.napomene,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Swipe action hints
+                AnimatedVisibility(
+                    visible = offsetX < -50f || offsetX > 50f,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Text(
+                        text = when {
+                            offsetX < -50f -> "← Swipe za brisanje"
+                            offsetX > 50f -> "Swipe za dopunu →"
+                            else -> ""
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when {
+                            offsetX < -50f -> MaterialTheme.colorScheme.error
+                            offsetX > 50f -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            // Drag handle (visible uvijek, ali transparentan kad nije drag)
+            if (isDragging) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(16.dp)
+                ) {
+                    Icon(
+                        Icons.Default.DragHandle,
+                        contentDescription = "Drag handle",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Google Wallet inspired card component
+@Composable
+fun WalletStyleCard(
+    lijek: Lijek,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onRefill: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isLowStock = lijek.trenutnoStanje <= 7
+    var offsetX by remember { mutableStateOf(0f) }
+    val maxSwipeDistance = 200f
+
+    // Gradijent boje ovisno o stanju
+    val cardGradient = when {
+        isLowStock -> Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFFFEBEE), // Light red
+                Color(0xFFFFCDD2)  // Slightly darker red
+            )
+        )
+        else -> Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFF3E5F5), // Light purple
+                Color(0xFFE1BEE7)  // Light lavender
+            )
+        )
+    }
+
+    // Animirane boje za swipe akcije
+    val swipeColor by animateColorAsState(
+        targetValue = when {
+            offsetX < -50f -> Color(0xFFFF5252) // Red for delete
+            offsetX > 50f -> Color(0xFF4CAF50)   // Green for refill
+            else -> Color.Transparent
+        },
+        animationSpec = spring(),
+        label = "swipe_color"
+    )
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .offset { IntOffset(offsetX.roundToInt(), 0) }
+            .pointerInput(lijek.id) {
+                detectDragGesturesAfterLongPress(
+                    onDragEnd = {
+                        when {
+                            offsetX < -maxSwipeDistance -> {
+                                onDelete()
+                                offsetX = 0f
+                            }
+                            offsetX > maxSwipeDistance -> {
+                                onRefill()
+                                offsetX = 0f
+                            }
+                            else -> offsetX = 0f
+                        }
+                    },
+                    onDragCancel = { offsetX = 0f }
+                ) { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
+                }
+            }
+            .clickable { onEdit() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(cardGradient)
+                .fillMaxWidth()
+        ) {
+            // Swipe indicator background
+            if (offsetX != 0f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            swipeColor.copy(alpha = 0.2f),
+                            RoundedCornerShape(20.dp)
+                        )
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Header with medicine name and status
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = lijek.naziv,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = lijek.doza,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+
+                    // Status indicator
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isLowStock)
+                                MaterialTheme.colorScheme.error
+                            else
+                                MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Text(
+                            text = if (isLowStock) "⚠️ NARUČI" else "✓ OK",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Medicine info row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Stock info
+                    InfoChip(
+                        icon = "💊",
+                        label = "Stanje",
+                        value = "${lijek.trenutnoStanje}/${lijek.pakiranje}",
+                        isWarning = isLowStock
+                    )
+
+                    // Schedule info
+                    val scheduleText = buildString {
+                        if (lijek.jutro) append("🌞 ")
+                        if (lijek.popodne) append("☀️ ")
+                        if (lijek.vecer) append("🌙 ")
+                        if (lijek.tipUzimanja == TipUzimanja.INTERVALNO) {
+                            append("⏰ ${lijek.intervalnoUzimanje?.intervalSati}h")
+                        }
+                    }.ifEmpty { "📋 Nije definirano" }
+
+                    InfoChip(
+                        icon = "",
+                        label = "Raspored",
+                        value = scheduleText,
+                        isWarning = false
+                    )
+                }
+
+                // Swipe hints
+                AnimatedVisibility(
+                    visible = offsetX != 0f,
+                    enter = fadeIn() + slideInVertically(),
+                    exit = fadeOut() + slideOutVertically()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = if (offsetX < 0) Arrangement.Start else Arrangement.End
+                    ) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = swipeColor.copy(alpha = 0.9f)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (offsetX < -50f) "🗑️ Obriši" else "➕ Dopuni",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoChip(
+    icon: String,
+    label: String,
+    value: String,
+    isWarning: Boolean = false
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isWarning)
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (icon.isNotEmpty()) {
+                Text(
+                    text = icon,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isWarning)
+                    MaterialTheme.colorScheme.error
+                else
+                    MaterialTheme.colorScheme.onSurface,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PocetniEkran(context: Context? = null) {
     val lijekovi = remember { mutableStateListOf<Lijek>() }
-    var idCounter by rememberSaveable { mutableStateOf(0) }
+    var idCounter by rememberSaveable { mutableIntStateOf(0) }
     var editLijek by remember { mutableStateOf<Lijek?>(null) }
     var showAddLijek by remember { mutableStateOf(false) }
     var showExportImportDialog by remember { mutableStateOf(false) }
@@ -1186,7 +1703,6 @@ fun PocetniEkran(context: Context? = null) {
                         currentScreen = "home"
                         showMessage = "✅ Podaci uspješno importirani!\n\nUčitano ${importedLijekovi.size} lijekova."
                     } else {
-                        // Detaljnije poruke o grešci
                         showMessage = """
                             ❌ Greška pri importu podataka!
                             
@@ -1300,7 +1816,7 @@ fun PocetniEkran(context: Context? = null) {
                     )
 
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.Default.Analytics, contentDescription = "Statistike") }, // Zamenio BarChart sa Analytics
+                        icon = { Icon(Icons.Default.Analytics, contentDescription = "Statistike") },
                         label = { Text("Statistike") },
                         selected = currentScreen == "statistics",
                         onClick = {

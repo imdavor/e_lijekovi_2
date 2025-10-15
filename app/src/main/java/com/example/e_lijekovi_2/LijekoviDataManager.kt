@@ -273,13 +273,14 @@ object LijekoviDataManager {
             return ValidationResult(false, "JSON ne završava s ']' - nije array")
         }
 
-        try {
-            json.decodeFromString<List<Lijek>>(jsonString)
-            return ValidationResult(true, "JSON je valjan")
+        return try {
+            // Jednostavna provjera - pokušaj parsirati JSON sa Kotlin Serialization
+            json.decodeFromString<List<Lijek>>(trimmed)
+            ValidationResult(true, "JSON je valjan")
         } catch (e: SerializationException) {
-            return ValidationResult(false, "Greška deserializacije: ${e.message}")
+            ValidationResult(false, "Greška deserializacije: ${e.message}")
         } catch (e: Exception) {
-            return ValidationResult(false, "Neočekivana greška: ${e.message}")
+            ValidationResult(false, "Neočekivana greška: ${e.message}")
         }
     }
 

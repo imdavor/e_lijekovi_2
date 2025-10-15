@@ -8,8 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,18 +18,16 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.zIndex
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -50,7 +47,6 @@ class MainActivity : ComponentActivity() {
 // Komponenta za zaglavlje vremenske grupe
 @Composable
 fun TimeGroupHeader(
-    icon: ImageVector,
     label: String,
     time: String,
     count: Int,
@@ -119,46 +115,135 @@ fun LijekCard(
     lijek: Lijek,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onRefill: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isLowStock = lijek.trenutnoStanje <= 7
+    var offsetX by remember { mutableStateOf(0f) }
+    val maxSwipeDistance = 200f
+
     Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .offset { IntOffset(offsetX.roundToInt(), 0) }
+            .pointerInput(lijek.id) {
+                detectDragGesturesAfterLongPress(
+                    onDragEnd = {
+                        when {
+                            offsetX < -maxSwipeDistance -> {
+                                // Swipe lijevo = brisanje
+                                onDelete()
+                                offsetX = 0f
+                            }
+                            offsetX > maxSwipeDistance -> {
+                                // Swipe desno = dodaj terapiju
+                                onRefill()
+                                offsetX = 0f
+                            }
+                            else -> offsetX = 0f
+                        }
+                    },
+                    onDragCancel = { offsetX = 0f }
+                ) { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    // Ograniči swipe na maksimalnu udaljenost
+                    offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
+                }
+            }
+            .clickable { onEdit() }, // Klik na cijelu karticu otvara edit
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f) // Crveno za brisanje
+                offsetX > 50f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) // Plavo za terapiju
+                isLowStock -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+                else -> MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     text = lijek.naziv,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = lijek.doza,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (lijek.napomene.isNotEmpty()) {
-                    Text(
-                        text = lijek.napomene,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                if (isLowStock) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        modifier = Modifier.padding(0.dp)
+                    ) {
+                        Text(
+                            text = "⚠️ NARUČI",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onError,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
-            Row {
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Uredi")
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Obriši")
-                }
+            Text(
+                text = lijek.doza,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Prikaz trenutnog stanja
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "💊 Stanje:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "${lijek.trenutnoStanje}/${lijek.pakiranje}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isLowStock)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (lijek.napomene.isNotEmpty()) {
+                Text(
+                    text = lijek.napomene,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Prikaz swipe hintova
+            if (offsetX < -50f) {
+                Text(
+                    text = "← Swipe za brisanje",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            } else if (offsetX > 50f) {
+                Text(
+                    text = "Swipe za novu terapiju →",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }
@@ -174,7 +259,9 @@ fun IntervalLijekCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onEdit() }, // Klik na cijelu karticu otvara edit
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -183,37 +270,26 @@ fun IntervalLijekCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+            // Uklonjen Row s IconButton za edit
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = lijek.naziv,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                lijek.intervalnoUzimanje?.let { interval ->
                     Text(
-                        text = lijek.naziv,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        text = "⏰ Svaki ${interval.intervalSati}h",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    lijek.intervalnoUzimanje?.let { interval ->
+                    val nextTime = interval.sljedeceVrijeme()
+                    if (nextTime != null) {
                         Text(
-                            text = "⏰ Svaki ${interval.intervalSati}h",
+                            text = "🕐 Sljedeće: $nextTime",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        val nextTime = interval.sljedeceVrijeme()
-                        if (nextTime != null) {
-                            Text(
-                                text = "🕐 Sljedeće: $nextTime",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Default.Edit, contentDescription = "Uredi")
                     }
                 }
             }
@@ -324,12 +400,24 @@ fun LijekDialog(
     var jutro by remember { mutableStateOf(lijek?.jutro ?: false) }
     var popodne by remember { mutableStateOf(lijek?.popodne ?: false) }
     var vecer by remember { mutableStateOf(lijek?.vecer ?: false) }
+    var pakiranje by remember { mutableStateOf(lijek?.pakiranje?.toString() ?: "30") }
+    var trenutnoStanje by remember { mutableStateOf(lijek?.trenutnoStanje?.toString() ?: "30") }
+
+    // Nova polja za terapiju
+    var showTerapijaSection by remember { mutableStateOf(false) }
+    var intervalSati by remember { mutableStateOf("8") }
+    var trajanjeDana by remember { mutableStateOf("7") }
+    var startDatum by remember { mutableStateOf("") }
+    var startVrijeme by remember { mutableStateOf("08:00") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (lijek == null) "Dodaj lijek" else "Uredi lijek") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
                 OutlinedTextField(
                     value = naziv,
                     onValueChange = { naziv = it },
@@ -342,6 +430,27 @@ fun LijekDialog(
                     label = { Text("Doza") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = pakiranje,
+                        onValueChange = { pakiranje = it },
+                        label = { Text("Pakiranje") },
+                        placeholder = { Text("30") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = trenutnoStanje,
+                        onValueChange = { trenutnoStanje = it },
+                        label = { Text("Trenutno stanje") },
+                        placeholder = { Text("30") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 OutlinedTextField(
                     value = napomene,
                     onValueChange = { napomene = it },
@@ -355,26 +464,246 @@ fun LijekDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = jutro,
-                            onCheckedChange = { jutro = it }
+                    // Toggle button za jutro
+                    Button(
+                        onClick = { jutro = !jutro },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (jutro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            contentColor = if (jutro) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                         )
-                        Text("Jutro")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("🌞")
+                            Text("Jutro")
+                        }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = popodne,
-                            onCheckedChange = { popodne = it }
+
+                    // Toggle button za podne
+                    Button(
+                        onClick = { popodne = !popodne },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (popodne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            contentColor = if (popodne) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                         )
-                        Text("Popodne")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("🌅")
+                            Text("Podne")
+                        }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = vecer,
-                            onCheckedChange = { vecer = it }
+
+                    // Toggle button za večer
+                    Button(
+                        onClick = { vecer = !vecer },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (vecer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            contentColor = if (vecer) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                         )
-                        Text("Večer")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("🌙")
+                            Text("Večer")
+                        }
+                    }
+                }
+
+                // Dodano za novu terapiju
+                if (lijek != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "⏰ Dodaj novu intervalnu terapiju",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                IconButton(
+                                    onClick = { showTerapijaSection = !showTerapijaSection }
+                                ) {
+                                    Icon(
+                                        if (showTerapijaSection) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = if (showTerapijaSection) "Sakrij" else "Prikaži"
+                                    )
+                                }
+                            }
+
+                            AnimatedVisibility(visible = showTerapijaSection) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        "Konfiguriraj novu intervalnu terapiju:",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = intervalSati,
+                                            onValueChange = { intervalSati = it },
+                                            label = { Text("Interval (sati)") },
+                                            placeholder = { Text("8") },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        OutlinedTextField(
+                                            value = trajanjeDana,
+                                            onValueChange = { trajanjeDana = it },
+                                            label = { Text("Trajanje (dana)") },
+                                            placeholder = { Text("7") },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = startDatum,
+                                            onValueChange = { startDatum = it },
+                                            label = { Text("Početni datum") },
+                                            placeholder = { Text("dd-MM-yyyy (opciono)") },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        OutlinedTextField(
+                                            value = startVrijeme,
+                                            onValueChange = { startVrijeme = it },
+                                            label = { Text("Početno vrijeme") },
+                                            placeholder = { Text("08:00") },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val intervalSatiInt = intervalSati.toIntOrNull() ?: 8
+                                            val trajanjeDanaInt = trajanjeDana.toIntOrNull() ?: 7
+
+                                            val startDateTime = if (startDatum.isNotBlank()) {
+                                                "$startDatum $startVrijeme"
+                                            } else {
+                                                // Trenutni datum s unesenim vremenom
+                                                val today = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+                                                "$today $startVrijeme"
+                                            }
+
+                                            val novaIntervalnaTerapija = IntervalnoUzimanje(
+                                                intervalSati = intervalSatiInt,
+                                                startDateTime = startDateTime,
+                                                trajanjeDana = trajanjeDanaInt,
+                                                complianceHistory = emptyList()
+                                            )
+
+                                            val updatedLijek = lijek.copy(
+                                                tipUzimanja = TipUzimanja.INTERVALNO,
+                                                intervalnoUzimanje = novaIntervalnaTerapija,
+                                                // Resetuj standardna vremena kad prebacujemo na intervalno
+                                                jutro = false,
+                                                popodne = false,
+                                                vecer = false
+                                            )
+
+                                            onSave(updatedLijek)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    ) {
+                                        Text("🎯 Pokreni intervalnu terapiju")
+                                    }
+
+                                    // Pomoć i objašnjenja
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                        )
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(12.dp)
+                                        ) {
+                                            Text(
+                                                "💡 Objašnjenje:",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                "• Interval: Svakih koliko sati se uzima lijek\n" +
+                                                "• Trajanje: Koliko dana traje terapija\n" +
+                                                "• Datum: Ako se ostavi prazno, počinje danas\n" +
+                                                "• Vrijeme: Prvo uzimanje u danu",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Prikaz trenutne intervalne terapije ako postoji
+                    if (lijek.tipUzimanja == TipUzimanja.INTERVALNO && lijek.intervalnoUzimanje != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Text(
+                                    "📋 Trenutna intervalna terapija:",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                val interval = lijek.intervalnoUzimanje!!
+                                Text("⏰ Svakih ${interval.intervalSati} sati")
+                                Text("📅 Trajanje: ${interval.trajanjeDana} dana")
+                                if (interval.startDateTime.isNotEmpty()) {
+                                    Text("🚀 Počinje: ${interval.startDateTime}")
+                                }
+                                val stats = interval.getComplianceStats(7)
+                                if (stats.totalScheduled > 0) {
+                                    Text("📊 Compliance (7 dana): ${stats.totalTaken}/${stats.totalScheduled} (${String.format("%.0f", stats.complianceRate)}%)")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -390,7 +719,19 @@ fun LijekDialog(
                             napomene = napomene.trim(),
                             jutro = jutro,
                             popodne = popodne,
-                            vecer = vecer
+                            vecer = vecer,
+                            pakiranje = pakiranje.toIntOrNull() ?: 30,
+                            trenutnoStanje = trenutnoStanje.toIntOrNull() ?: 30,
+                            // Kopiraj ostala postojeća polja ako uređujemo lijek
+                            boja = lijek?.boja ?: "#4CAF50",
+                            tipUzimanja = lijek?.tipUzimanja ?: TipUzimanja.STANDARDNO,
+                            vrijemeJutro = lijek?.vrijemeJutro ?: "08:00",
+                            vrijemePopodne = lijek?.vrijemePopodne ?: "14:00",
+                            vrijemeVecer = lijek?.vrijemeVecer ?: "20:00",
+                            intervalnoUzimanje = lijek?.intervalnoUzimanje,
+                            sortOrderJutro = lijek?.sortOrderJutro ?: 0,
+                            sortOrderPopodne = lijek?.sortOrderPopodne ?: 0,
+                            sortOrderVecer = lijek?.sortOrderVecer ?: 0
                         )
                         onSave(noviLijek)
                     }
@@ -551,7 +892,9 @@ fun HomeScreen(
     lijekovi: List<Lijek>,
     onEditLijek: (Lijek) -> Unit,
     onDeleteLijek: (Lijek) -> Unit,
+    onRefillLijek: (Lijek) -> Unit,
     onReorder: (DobaDana, Int, Int) -> Unit, // (grupa, fromId, toId)
+    onDoseTaken: (Lijek, String, String?) -> Unit = { _, _, _ -> }, // (lijek, scheduledTime, actualTime)
     modifier: Modifier = Modifier
 ) {
     if (lijekovi.isEmpty()) {
@@ -601,7 +944,6 @@ fun HomeScreen(
             // 🌞 JUTRO grupa
             if (jutarnjiLijekovi.isNotEmpty()) {
                 TimeGroupHeader(
-                    icon = Icons.Default.LightMode, // Zamenio WbSunny sa LightMode
                     label = "Jutro",
                     time = "08:00",
                     count = jutarnjiLijekovi.size,
@@ -616,6 +958,7 @@ fun HomeScreen(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
+                        onRefill = { onRefillLijek(lijek) },
                         modifier = Modifier
                             .pointerInput(lijek.id) {
                                 detectDragGesturesAfterLongPress(
@@ -641,11 +984,10 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // 🌅 POPODNE grupa
+            // 🌅 PODNE grupa
             if (popodnevniLijekovi.isNotEmpty()) {
                 TimeGroupHeader(
-                    icon = Icons.Default.LightMode, // Zamenio WbTwilight6 sa LightMode
-                    label = "Popodne",
+                    label = "Podne",
                     time = "14:00",
                     count = popodnevniLijekovi.size,
                     emoji = "🌅"
@@ -659,6 +1001,7 @@ fun HomeScreen(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
+                        onRefill = { onRefillLijek(lijek) },
                         modifier = Modifier
                             .pointerInput(lijek.id) {
                                 detectDragGesturesAfterLongPress(
@@ -687,7 +1030,6 @@ fun HomeScreen(
             // 🌙 VEČER grupa
             if (vecernjiLijekovi.isNotEmpty()) {
                 TimeGroupHeader(
-                    icon = Icons.Default.DarkMode, // Zamenio NightsStay sa DarkMode
                     label = "Večer",
                     time = "20:00",
                     count = vecernjiLijekovi.size,
@@ -702,6 +1044,7 @@ fun HomeScreen(
                         lijek = lijek,
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
+                        onRefill = { onRefillLijek(lijek) },
                         modifier = Modifier
                             .pointerInput(lijek.id) {
                                 detectDragGesturesAfterLongPress(
@@ -730,7 +1073,6 @@ fun HomeScreen(
             // ⏰ INTERVALNO grupa
             if (intervalniLijekovi.isNotEmpty()) {
                 TimeGroupHeader(
-                    icon = Icons.Default.Schedule,
                     label = "Intervalno",
                     time = "Po rasporedu",
                     count = intervalniLijekovi.size,
@@ -744,7 +1086,7 @@ fun HomeScreen(
                         onEdit = { onEditLijek(lijek) },
                         onDelete = { onDeleteLijek(lijek) },
                         onDoseTaken = { scheduledTime, actualTime ->
-                            // Ovo će biti obrađeno u parentu kroz ažuriranje state-a
+                            onDoseTaken(lijek, scheduledTime, actualTime)
                         }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -1037,7 +1379,34 @@ fun PocetniEkran(context: Context? = null) {
                             lijekovi.remove(lijek)
                             saveData()
                         },
+                        onRefillLijek = { lijek ->
+                            // Dodaj pakiranje na trenutno stanje lijeka
+                            val index = lijekovi.indexOfFirst { it.id == lijek.id }
+                            if (index != -1) {
+                                val updatedLijek = lijekovi[index].copy(
+                                    trenutnoStanje = lijekovi[index].trenutnoStanje + lijekovi[index].pakiranje
+                                )
+                                lijekovi[index] = updatedLijek
+                                saveData()
+                                showMessage = "✅ Dodano je ${lijek.pakiranje} komada lijeka '${lijek.naziv}'.\n\nNovo stanje: ${updatedLijek.trenutnoStanje} komada"
+                            }
+                        },
                         onReorder = onReorder,
+                        onDoseTaken = { lijek, scheduledTime, actualTime ->
+                            // Handle interval therapy dose taking
+                            val index = lijekovi.indexOfFirst { it.id == lijek.id }
+                            if (index != -1 && lijek.intervalnoUzimanje != null) {
+                                val updatedInterval = lijek.intervalnoUzimanje.oznaciDozuUzeta(scheduledTime, actualTime)
+                                val updatedLijek = lijek.copy(
+                                    intervalnoUzimanje = updatedInterval,
+                                    // Reduce current stock when dose is taken
+                                    trenutnoStanje = maxOf(0, lijek.trenutnoStanje - 1)
+                                )
+                                lijekovi[index] = updatedLijek
+                                saveData()
+                                showMessage = "✅ Doza lijeka '${lijek.naziv}' označena kao uzeta u $scheduledTime\n\nPreostalo: ${updatedLijek.trenutnoStanje} komada"
+                            }
+                        },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }

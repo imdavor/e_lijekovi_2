@@ -239,6 +239,9 @@ data class Lijek(
     // Pakiranje - broj tableta/doza u jednom pakiranju
     val pakiranje: Int = 30, // Default 30 tableta po pakiranju
 
+    // Trenutno stanje - koliko tableta/doza trenutno imamo
+    val trenutnoStanje: Int = 30, // Default jednako pakiranju
+
     // Za redoslijed prikaza unutar vremenske grupe
     val sortOrderJutro: Int = 0,
     val sortOrderPopodne: Int = 0,

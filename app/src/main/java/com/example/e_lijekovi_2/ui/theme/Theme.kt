@@ -15,46 +15,50 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsControllerCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = MedicalBlueDark,
-    onPrimary = Color.White,
-    primaryContainer = MedicalBlueDarkVariant,
-    onPrimaryContainer = Color.White,
-    secondary = MedicalGreenDark,
-    onSecondary = Color.White,
-    tertiary = MedicalOrange,
-    onTertiary = Color.White,
-    background = BackgroundDark,
-    onBackground = TextPrimaryDark,
-    surface = SurfaceDark,
-    onSurface = TextPrimaryDark,
-    error = ErrorRed,
-    onError = Color.White
+    primary = Color(0xFF90CAF9),
+    onPrimary = Color(0xFF1A1C1E),
+    primaryContainer = Color(0xFF1565C0),
+    onPrimaryContainer = Color(0xFFE3F2FD),
+    secondary = Color(0xFFA5D6A7),
+    onSecondary = Color(0xFF1A1C1E),
+    tertiary = Color(0xFFFFCC02),
+    onTertiary = Color(0xFF1A1C1E),
+    background = Color(0xFF121212),
+    onBackground = Color(0xFFE1E1E1),
+    surface = Color(0xFF1E1E1E),
+    onSurface = Color(0xFFE1E1E1),
+    surfaceVariant = Color(0xFF424242),
+    onSurfaceVariant = Color(0xFFCAC4D0),
+    error = Color(0xFFCF6679),
+    onError = Color(0xFF1A1C1E)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = MedicalBlue,
-    onPrimary = Color.White,
-    primaryContainer = MedicalBlueLight,
-    onPrimaryContainer = TextPrimary,
-    secondary = MedicalGreen,
-    onSecondary = Color.White,
-    tertiary = MedicalOrange,
-    onTertiary = Color.White,
-    background = BackgroundLight,
-    onBackground = TextPrimary,
-    surface = SurfaceLight,
-    onSurface = TextPrimary,
-    error = ErrorRed,
-    onError = Color.White
+    primary = Color(0xFF2196F3),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFE3F2FD),
+    onPrimaryContainer = Color(0xFF1A1C1E),
+    secondary = Color(0xFF4CAF50),
+    onSecondary = Color(0xFFFFFFFF),
+    tertiary = Color(0xFFFF9800),
+    onTertiary = Color(0xFFFFFFFF),
+    background = Color(0xFFFDFCFF),
+    onBackground = Color(0xFF1A1C1E),
+    surface = Color(0xFFFDFCFF),
+    onSurface = Color(0xFF1A1C1E),
+    surfaceVariant = Color(0xFFE7E0EC),
+    onSurfaceVariant = Color(0xFF49454F),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF)
 )
 
 @Composable
 fun E_lijekovi_2Theme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Isključeno za konzistentne boje
+    // Dynamic color is available on Android 12+
+    dynamicColor: Boolean = false, // Onemogućeno da koristimo naše custom boje
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -70,10 +74,12 @@ fun E_lijekovi_2Theme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            val insetsController = WindowCompat.getInsetsController(window, view)
-            insetsController.isAppearanceLightStatusBars = !darkTheme
-            insetsController.isAppearanceLightNavigationBars = !darkTheme
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                window.statusBarColor = colorScheme.primary.toArgb()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+                }
+            }
         }
     }
 

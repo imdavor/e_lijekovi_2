@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -56,7 +57,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            E_lijekovi_2Theme {
+            E_lijekovi_2Theme(
+                darkTheme = isSystemInDarkTheme(), // Eksplicitno koristimo system dark theme
+                dynamicColor = false // Onemogućeno da se forsiraju naše custom boje
+            ) {
                 PocetniEkran(context = this)
             }
         }
@@ -207,7 +211,8 @@ fun LijekCard(
                 Text(
                     text = lijek.naziv,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (isLowStock) {
                     Card(
@@ -291,6 +296,8 @@ fun IntervalLijekCard(
     onDoseTaken: (String, String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -310,7 +317,7 @@ fun IntervalLijekCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header s nazivom lijeka
+            // Header s nazivom lijeka i akcijskim gumbovima
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -320,7 +327,8 @@ fun IntervalLijekCard(
                     Text(
                         text = lijek.naziv,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = lijek.doza,
@@ -329,20 +337,38 @@ fun IntervalLijekCard(
                     )
                 }
 
-                // Terapija status badge
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ),
-                    shape = RoundedCornerShape(8.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "⏰ TERAPIJA",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    // Terapija status badge
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "⏰ TERAPIJA",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Delete button
+                    IconButton(
+                        onClick = { showDeleteConfirmation = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Obriši intervalnu terapiju",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -416,6 +442,56 @@ fun IntervalLijekCard(
                 }
             }
         }
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = {
+                Text(
+                    text = "Obriši intervalnu terapiju?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text("Želite li obrisati intervalnu terapiju za:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "${lijek.naziv} (${lijek.doza})",
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Ova akcija će ukloniti sav povijest uzimanja i ne može se poništiti.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Obriši", color = MaterialTheme.colorScheme.onError)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false }
+                ) {
+                    Text("Odustani")
+                }
+            }
+        )
     }
 }
 
@@ -1208,7 +1284,7 @@ fun HomeScreen(
     }
 }
 
-// Google Wallet stil draggable kartice lijeka
+// Google Wallet style draggable kartice lijeka
 @Composable
 fun DraggableLijekCard(
     lijek: Lijek,
@@ -1352,7 +1428,8 @@ fun DraggableLijekCard(
                     Text(
                         text = lijek.naziv,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (isLowStock) {
                         Card(
@@ -1461,18 +1538,18 @@ fun WalletStyleCard(
     var offsetX by remember { mutableStateOf(0f) }
     val maxSwipeDistance = 200f
 
-    // Gradijent boje ovisno o stanju
+    // Gradijent boje ovisno o stanju - koristi theme-aware boje
     val cardGradient = when {
         isLowStock -> Brush.linearGradient(
             colors = listOf(
-                Color(0xFFFFEBEE), // Light red
-                Color(0xFFFFCDD2)  // Slightly darker red
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
             )
         )
         else -> Brush.linearGradient(
             colors = listOf(
-                Color(0xFFF3E5F5), // Light purple
-                Color(0xFFE1BEE7)  // Light lavender
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
             )
         )
     }
@@ -1480,8 +1557,8 @@ fun WalletStyleCard(
     // Animirane boje za swipe akcije
     val swipeColor by animateColorAsState(
         targetValue = when {
-            offsetX < -50f -> Color(0xFFFF5252) // Red for delete
-            offsetX > 50f -> Color(0xFF4CAF50)   // Green for refill
+            offsetX < -50f -> MaterialTheme.colorScheme.error
+            offsetX > 50f -> MaterialTheme.colorScheme.primary
             else -> Color.Transparent
         },
         animationSpec = spring(),
@@ -1583,7 +1660,10 @@ fun WalletStyleCard(
                             text = if (isLowStock) "⚠️ NARUČI" else "✓ OK",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
+                            color = if (isLowStock)
+                                MaterialTheme.colorScheme.onError
+                            else
+                                MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -1644,7 +1724,10 @@ fun WalletStyleCard(
                                 text = if (offsetX < -50f) "🗑️ Obriši" else "➕ Dopuni",
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color.White,
+                                color = if (offsetX < -50f)
+                                    MaterialTheme.colorScheme.onError
+                                else
+                                    MaterialTheme.colorScheme.onPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                         }

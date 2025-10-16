@@ -34,9 +34,10 @@ data class IntervalnoUzimanje(
     val intervalSati: Int, // Svakih koliko sati
     val startDateTime: String = "", // Početni datum i vrijeme (yyyy-MM-dd HH:mm), prazno za trenutno vrijeme
     val trajanjeDana: Int = 7, // Koliko dana se uzima lijek
-    val complianceHistory: List<UzimanjeRecord> = emptyList() // Povijest uzimanja za compliance tracking
+    val complianceHistory: List<UzimanjeRecord> = emptyList(), // Povijest uzimanja za compliance tracking
+    val ukupnoUzimanja: Int = 0 // Ukupno planiranih uzimanja za terapiju
 ) {
-    // Companion object sa konstante formatera umesto instance varijabli
+    // Companion object sa konstante formatererumesto instance varijabli
     companion object {
         private const val DATE_TIME_PATTERN = "dd-MM-yyyy HH:mm"
         private const val DATE_PATTERN = "dd-MM-yyyy"

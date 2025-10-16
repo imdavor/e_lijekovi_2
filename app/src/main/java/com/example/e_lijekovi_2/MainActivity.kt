@@ -73,11 +73,19 @@ fun TimeGroupHeader(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 1.dp,
+                shape = RoundedCornerShape(12.dp),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            )
+            .clip(RoundedCornerShape(12.dp)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
@@ -144,6 +152,12 @@ fun LijekCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            )
+            .clip(RoundedCornerShape(16.dp))
             .offset { IntOffset(offsetX.roundToInt(), 0) }
             .pointerInput(lijek.id) {
                 detectDragGesturesAfterLongPress(
@@ -171,7 +185,7 @@ fun LijekCard(
                 }
             }
             .clickable { onEdit() }, // Klik na cijelu karticu otvara edit
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f) // Crveno za brisanje
@@ -280,11 +294,18 @@ fun IntervalLijekCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+            )
+            .clip(RoundedCornerShape(16.dp))
             .clickable { onEdit() }, // Klik na cijelu karticu otvara edit
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        ),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -796,8 +817,16 @@ fun StatisticsScreen(
         )
 
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                )
+                .clip(RoundedCornerShape(12.dp)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -854,8 +883,16 @@ fun SettingsScreen(
         }
 
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 1.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                )
+                .clip(RoundedCornerShape(12.dp)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -892,8 +929,16 @@ fun AboutScreen(modifier: Modifier = Modifier) {
         )
 
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                )
+                .clip(RoundedCornerShape(12.dp)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -1409,6 +1454,12 @@ fun WalletStyleCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 1.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            )
+            .clip(RoundedCornerShape(20.dp))
             .offset { IntOffset(offsetX.roundToInt(), 0) }
             .pointerInput(lijek.id) {
                 detectDragGesturesAfterLongPress(
@@ -1433,7 +1484,7 @@ fun WalletStyleCard(
                 }
             }
             .clickable { onEdit() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
@@ -1575,14 +1626,24 @@ fun InfoChip(
     isWarning: Boolean = false
 ) {
     Card(
+        modifier = Modifier
+            .shadow(
+                elevation = 1.dp,
+                shape = RoundedCornerShape(12.dp),
+                spotColor = if (isWarning)
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                else
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            )
+            .clip(RoundedCornerShape(12.dp)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isWarning)
                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
         ),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),

@@ -37,7 +37,7 @@ data class IntervalnoUzimanje(
     val complianceHistory: List<UzimanjeRecord> = emptyList(), // Povijest uzimanja za compliance tracking
     val ukupnoUzimanja: Int = 0 // Ukupno planiranih uzimanja za terapiju
 ) {
-    // Companion object sa konstante formatererumesto instance varijabli
+    // Companion object sa konstante formatere umjesto instance varijabli
     companion object {
         private const val DATE_TIME_PATTERN = "dd-MM-yyyy HH:mm"
         private const val DATE_PATTERN = "dd-MM-yyyy"
@@ -54,7 +54,7 @@ data class IntervalnoUzimanje(
         val calendar = Calendar.getInstance()
         if (startDateTime.isNotEmpty()) {
             try {
-                calendar.time = createDateTimeFormat().parse(startDateTime) ?: Date()
+                calendar.time = IntervalnoUzimanje.createDateTimeFormat().parse(startDateTime) ?: Date()
             } catch (e: Exception) {
                 // Fallback na trenutno vrijeme ako parsing fail-a
             }
@@ -65,7 +65,7 @@ data class IntervalnoUzimanje(
     // Generiraj sva planirana vremena uzimanja za određeni dan
     fun generirajVremenaZaDan(date: String): List<String> {
         val vremena = mutableListOf<String>()
-        val targetDate = createDateFormat().parse(date) ?: return emptyList()
+        val targetDate = IntervalnoUzimanje.createDateFormat().parse(date) ?: return emptyList()
         val startCal = getStartCalendar()
 
         // Provjeri je li terapija aktivna za ovaj dan
@@ -87,7 +87,7 @@ data class IntervalnoUzimanje(
         krajDana.set(Calendar.SECOND, 59)
 
         while (dayCal.timeInMillis <= krajDana.timeInMillis) {
-            vremena.add(createTimeFormat().format(dayCal.time))
+            vremena.add(IntervalnoUzimanje.createTimeFormat().format(dayCal.time))
             dayCal.add(Calendar.HOUR_OF_DAY, intervalSati)
         }
 
@@ -96,14 +96,14 @@ data class IntervalnoUzimanje(
 
     // Generiraj vremena uzimanja za današnji dan
     fun generirajVremenaZaDanas(): List<String> {
-        val today = createDateFormat().format(Date())
+        val today = IntervalnoUzimanje.createDateFormat().format(Date())
         return generirajVremenaZaDan(today)
     }
 
     // Sljedeće vrijeme uzimanja
     fun sljedeceVrijeme(): String? {
         val sada = Calendar.getInstance()
-        val today = createDateFormat().format(Date())
+        val today = IntervalnoUzimanje.createDateFormat().format(Date())
         val vremenaZaDanas = generirajVremenaZaDan(today)
 
         for (vrijeme in vremenaZaDanas) {
@@ -123,8 +123,8 @@ data class IntervalnoUzimanje(
 
     // Označi dozu kao uzeta
     fun oznaciDozuUzeta(scheduledTime: String, actualTime: String? = null): IntervalnoUzimanje {
-        val today = createDateFormat().format(Date())
-        val actual = actualTime ?: createTimeFormat().format(Date())
+        val today = IntervalnoUzimanje.createDateFormat().format(Date())
+        val actual = actualTime ?: IntervalnoUzimanje.createTimeFormat().format(Date())
 
         // Provjeri je li kasno (>30 min)
         val isLateTaking = if (actualTime != null) {
@@ -159,7 +159,7 @@ data class IntervalnoUzimanje(
     fun getComplianceStats(days: Int = 30): ComplianceStats {
         val cutoffDate = Calendar.getInstance()
         cutoffDate.add(Calendar.DAY_OF_MONTH, -days)
-        val cutoffString = createDateFormat().format(cutoffDate.time)
+        val cutoffString = IntervalnoUzimanje.createDateFormat().format(cutoffDate.time)
 
         val relevantRecords = complianceHistory.filter { it.date >= cutoffString }
 
@@ -183,7 +183,7 @@ data class IntervalnoUzimanje(
 
     // Provjeri je li doza već uzeta danas
     fun jeDozuUzetaDanas(scheduledTime: String): Boolean {
-        val today = createDateFormat().format(Date())
+        val today = IntervalnoUzimanje.createDateFormat().format(Date())
         return complianceHistory.any { it.date == today && it.scheduledTime == scheduledTime && it.actualTime != null }
     }
 
@@ -250,60 +250,51 @@ data class Lijek(
 ) {
     // Generiraj sva vremena uzimanja za današnji dan
     fun generirajVremenaZaDanas(): List<String> {
+        val vremena = mutableListOf<String>()
+
+        if (tipUzimanja == TipUzimanja.INTERVALNO) {
+            return intervalnoUzimanje?.generirajVremenaZaDanas() ?: emptyList()
+        }
+
+        // Za standardno uzimanje
+        if (jutro) vremena.add(vrijemeJutro)
+        if (popodne) vremena.add(vrijemePopodne)
+        if (vecer) vremena.add(vrijemeVecer)
+
+        return vremena.sorted()
+    }
+
+    // Provjeri je li neki lijek za danas već uzet
+    fun jeUzetZaDanas(): Boolean {
         return when (tipUzimanja) {
-            TipUzimanja.STANDARDNO -> {
-                val vremena = mutableListOf<String>()
-                if (jutro) vremena.add(vrijemeJutro)
-                if (popodne) vremena.add(vrijemePopodne)
-                if (vecer) vremena.add(vrijemeVecer)
-                vremena.sorted()
-            }
             TipUzimanja.INTERVALNO -> {
-                intervalnoUzimanje?.generirajVremenaZaDanas() ?: emptyList()
+                intervalnoUzimanje?.let { interval ->
+                    val today = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault()).format(Date())
+                    interval.complianceHistory.any { it.date == today && it.actualTime != null }
+                } ?: false
+            }
+            TipUzimanja.STANDARDNO -> {
+                // Za standardno uzimanje, možemo dodati logiku ako je potrebno
+                false
             }
         }
     }
 
-    // Sljedeće vrijeme uzimanja
+    // Dobij sljedeće vrijeme uzimanja
     fun sljedeceVrijeme(): String? {
-        val vremenaZaDanas = generirajVremenaZaDanas()
-        val sada = Calendar.getInstance()
+        return when (tipUzimanja) {
+            TipUzimanja.INTERVALNO -> intervalnoUzimanje?.sljedeceVrijeme()
+            TipUzimanja.STANDARDNO -> {
+                val sada = Calendar.getInstance()
+                val trenutnoVrijeme = sada.get(Calendar.HOUR_OF_DAY) * 60 + sada.get(Calendar.MINUTE)
 
-        for (vrijeme in vremenaZaDanas) {
-            val vrijemeArray = vrijeme.split(":")
-            val vrijemeCalendar = Calendar.getInstance()
-            vrijemeCalendar.set(Calendar.HOUR_OF_DAY, vrijemeArray[0].toInt())
-            vrijemeCalendar.set(Calendar.MINUTE, vrijemeArray[1].toInt())
-            vrijemeCalendar.set(Calendar.SECOND, 0)
-            vrijemeCalendar.set(Calendar.MILLISECOND, 0)
-
-            if (vrijemeCalendar.timeInMillis > sada.timeInMillis) {
-                return vrijeme
+                val vremena = generirajVremenaZaDanas()
+                vremena.firstOrNull { vrijeme ->
+                    val dijelovi = vrijeme.split(":")
+                    val vrijemeUMinutama = dijelovi[0].toInt() * 60 + dijelovi[1].toInt()
+                    vrijemeUMinutama > trenutnoVrijeme
+                }
             }
         }
-        return null // Nema više uzimanja danas
-    }
-
-    // Provjeri je li vrijeme za uzimanje lijeka (±15 minuta)
-    fun jeVrijemeZaUzimanje(): Boolean {
-        val sada = Calendar.getInstance()
-        val vremenaZaDanas = generirajVremenaZaDanas()
-
-        for (vrijeme in vremenaZaDanas) {
-            val vrijemeArray = vrijeme.split(":")
-            val vrijemeCalendar = Calendar.getInstance()
-            vrijemeCalendar.set(Calendar.HOUR_OF_DAY, vrijemeArray[0].toInt())
-            vrijemeCalendar.set(Calendar.MINUTE, vrijemeArray[1].toInt())
-            vrijemeCalendar.set(Calendar.SECOND, 0)
-            vrijemeCalendar.set(Calendar.MILLISECOND, 0)
-
-            val razlikaMillis = kotlin.math.abs(sada.timeInMillis - vrijemeCalendar.timeInMillis)
-            val razlikaMinuta = razlikaMillis / (1000 * 60) // Convert to minutes
-
-            if (razlikaMinuta <= 15) {
-                return true
-            }
-        }
-        return false
     }
 }

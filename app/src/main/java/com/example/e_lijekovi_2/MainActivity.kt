@@ -4,8 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,6 +19,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -43,15 +50,36 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import android.content.Context
-import androidx.compose.animation.animateColorAsState
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+// Subtle elevation to use consistently for medicine cards
+private val subtleCardElevation = 4.dp
+
+// Helper functions for interval therapy calculations
+private fun calculateRemainingDoses(interval: IntervalnoUzimanje): Int {
+    val takenCount = interval.complianceHistory.size
+    return maxOf(0, interval.ukupnoUzimanja - takenCount)
+}
+
+private fun calculateNextDose(interval: IntervalnoUzimanje): String? {
+    val remainingDoses = calculateRemainingDoses(interval)
+    if (remainingDoses <= 0) return null
+
+    val formatter = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+    val currentTime = java.util.Date()
+    val calendar = java.util.Calendar.getInstance()
+    calendar.time = currentTime
+    calendar.add(java.util.Calendar.HOUR_OF_DAY, interval.intervalSati)
+
+    return formatter.format(calendar.time)
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -163,12 +191,6 @@ fun LijekCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            // restore subtle shadow
-            .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-            )
             .clip(RoundedCornerShape(16.dp))
             .offset { IntOffset(offsetX.roundToInt(), 0) }
             .pointerInput(lijek.id) {
@@ -196,13 +218,13 @@ fun LijekCard(
                     offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
                 }
             }
-            .clickable { onEdit() }, // Klik na cijelu karticu otvara edit
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            .clickable { onEdit() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f) // Crveno za brisanje
                 offsetX > 50f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) // Plavo za terapiju
-                isLowStock -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+                isLowStock -> Color(0xFFFFF8E1) // suptilna žuta (Material Yellow 50)
                 else -> MaterialTheme.colorScheme.surface
             }
         )
@@ -235,7 +257,7 @@ fun LijekCard(
                         Text(
                             text = "💊 Stanje: ${lijek.trenutnoStanje}/${lijek.pakiranje}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (isLowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant, // tamno žuta za tekst
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -298,7 +320,12 @@ fun IntervalLijekCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            // removed outer shadow so interval medicine card has no heavy outer frame
+            // subtle shadow so interval medicine cards also have a gentle separation
+            .shadow(
+                elevation = subtleCardElevation,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+            )
             .clip(RoundedCornerShape(16.dp))
             .clickable { onEdit() },
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -1277,6 +1304,7 @@ fun HomeScreen(
     }
 }
 
+
 // Google Wallet style draggable kartice lijeka
 @Composable
 fun DraggableLijekCard(
@@ -1324,9 +1352,9 @@ fun DraggableLijekCard(
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
-            // add subtle shadow back
+            // add subtle shadow
             .shadow(
-                elevation = 6.dp,
+                elevation = subtleCardElevation,
                 shape = RoundedCornerShape(12.dp),
                 spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
             )
@@ -1416,7 +1444,7 @@ fun DraggableLijekCard(
                             Text(
                                 text = "💊 Stanje: ${lijek.trenutnoStanje}/${lijek.pakiranje}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = if (isLowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant, // tamno žuta za tekst
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -1527,8 +1555,11 @@ fun PocetniEkran(context: Context? = null) {
     var showExportImportDialog by remember { mutableStateOf(false) }
     var showMessage by remember { mutableStateOf<String?>(null) }
     var currentScreen by remember { mutableStateOf("home") }
+    var newlyAddedLijekId by remember { mutableStateOf<Int?>(null) }
+    var recentlyDeletedLijek by remember { mutableStateOf<Lijek?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val saveData = {
         context?.let { ctx ->
@@ -1536,38 +1567,103 @@ fun PocetniEkran(context: Context? = null) {
         }
     }
 
-    // Reordering helper
-    val onReorder: (DobaDana, Int, Int) -> Unit = onReorder@{ grupa, fromId, toId ->
-        // Filtriraj grupu i složi po sortOrderu
-        val groupList = when (grupa) {
-            DobaDana.JUTRO -> lijekovi.filter { it.jutro && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderJutro }
-            DobaDana.POPODNE -> lijekovi.filter { it.popodne && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderPopodne }
-            DobaDana.VECER -> lijekovi.filter { it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderVecer }
-        }.toMutableList()
+    // onReorder function implementation moved inside PocetniEkran
+    val onReorder: (DobaDana, Int, Int) -> Unit = { grupa, fromId, toId ->
+        val index1 = lijekovi.indexOfFirst { it.id == fromId }
+        val index2 = lijekovi.indexOfFirst { it.id == toId }
 
-        val fromIndex = groupList.indexOfFirst { it.id == fromId }
-        val toIndex = groupList.indexOfFirst { it.id == toId }
-        if (fromIndex == -1 || toIndex == -1) return@onReorder
+        if (index1 != -1 && index2 != -1) {
+            val lijek1 = lijekovi[index1]
+            val lijek2 = lijekovi[index2]
 
-        val moved = groupList.removeAt(fromIndex)
-        groupList.add(toIndex, moved)
-
-        // Ažuriraj sortOrder polja u originalnoj listi
-        groupList.forEachIndexed { idx, l ->
-            val globalIndex = lijekovi.indexOfFirst { it.id == l.id }
-            if (globalIndex != -1) {
-                val updated = when (grupa) {
-                    DobaDana.JUTRO -> l.copy(sortOrderJutro = idx)
-                    DobaDana.POPODNE -> l.copy(sortOrderPopodne = idx)
-                    DobaDana.VECER -> l.copy(sortOrderVecer = idx)
+            when (grupa) {
+                DobaDana.JUTRO -> {
+                    lijekovi[index1] = lijek1.copy(sortOrderJutro = lijek2.sortOrderJutro)
+                    lijekovi[index2] = lijek2.copy(sortOrderJutro = lijek1.sortOrderJutro)
                 }
-                lijekovi[globalIndex] = updated
+                DobaDana.POPODNE -> {
+                    lijekovi[index1] = lijek1.copy(sortOrderPopodne = lijek2.sortOrderPopodne)
+                    lijekovi[index2] = lijek2.copy(sortOrderPopodne = lijek1.sortOrderPopodne)
+                }
+                DobaDana.VECER -> {
+                    lijekovi[index1] = lijek1.copy(sortOrderVecer = lijek2.sortOrderVecer)
+                    lijekovi[index2] = lijek2.copy(sortOrderVecer = lijek1.sortOrderVecer)
+                }
+            }
+            saveData()
+        }
+    }
+
+    // Enhanced delete with undo functionality
+    val handleDelete: (Lijek) -> Unit = { lijek ->
+        recentlyDeletedLijek = lijek
+        lijekovi.remove(lijek)
+        saveData()
+
+        scope.launch {
+            val result = snackbarHostState.showSnackbar(
+                message = "Lijek '${lijek.naziv}' je obrisan",
+                actionLabel = "Poništi",
+                duration = SnackbarDuration.Long
+            )
+
+            if (result == SnackbarResult.ActionPerformed) {
+                // Restore deleted medicine
+                recentlyDeletedLijek?.let { deletedLijek ->
+                    lijekovi.add(deletedLijek)
+                    saveData()
+                    snackbarHostState.showSnackbar(
+                        message = "Lijek '${deletedLijek.naziv}' je vraćen",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
+            recentlyDeletedLijek = null
+        }
+    }
+
+    // Enhanced add with highlight animation
+    val handleAddLijek: (Lijek) -> Unit = { newLijek ->
+        val lijekWithId = newLijek.copy(id = idCounter++)
+        lijekovi.add(lijekWithId)
+        newlyAddedLijekId = lijekWithId.id
+        saveData()
+        showAddLijek = false
+
+        scope.launch {
+            snackbarHostState.showSnackbar(
+                message = "Terapija '${newLijek.naziv}' dodana",
+                actionLabel = "Uredi",
+                duration = SnackbarDuration.Short
+            ).also { result ->
+                if (result == SnackbarResult.ActionPerformed) {
+                    editLijek = lijekWithId
+                }
+            }
+
+            // Clear highlight after animation
+            kotlinx.coroutines.delay(1000)
+            newlyAddedLijekId = null
+        }
+    }
+
+    // Enhanced refill with snackbar feedback
+    val handleRefill: (Lijek) -> Unit = { lijek ->
+        val index = lijekovi.indexOfFirst { it.id == lijek.id }
+        if (index != -1) {
+            val updatedLijek = lijekovi[index].copy(
+                trenutnoStanje = lijekovi[index].trenutnoStanje + lijekovi[index].pakiranje
+            )
+            lijekovi[index] = updatedLijek
+            saveData()
+
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "Dodano ${lijek.pakiranje} kom za '${lijek.naziv}'",
+                    duration = SnackbarDuration.Short
+                )
             }
         }
-        saveData()
     }
 
     LaunchedEffect(Unit) {
@@ -1781,35 +1877,24 @@ fun PocetniEkran(context: Context? = null) {
             },
             floatingActionButton = {
                 if (currentScreen == "home") {
-                    FloatingActionButton(
+                    AnimatedFAB(
+                        isExpanded = showAddLijek,
                         onClick = { showAddLijek = true }
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Dodaj lijek")
-                    }
+                    )
                 }
+            },
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState)
             }
         ) { paddingValues ->
             when (currentScreen) {
                 "home" -> {
-                    HomeScreen(
+                    EnhancedHomeScreen(
                         lijekovi = lijekovi,
+                        newlyAddedLijekId = newlyAddedLijekId,
                         onEditLijek = { editLijek = it },
-                        onDeleteLijek = { lijek ->
-                            lijekovi.remove(lijek)
-                            saveData()
-                        },
-                        onRefillLijek = { lijek ->
-                            // Dodaj pakiranje na trenutno stanje lijeka
-                            val index = lijekovi.indexOfFirst { it.id == lijek.id }
-                            if (index != -1) {
-                                val updatedLijek = lijekovi[index].copy(
-                                    trenutnoStanje = lijekovi[index].trenutnoStanje + lijekovi[index].pakiranje
-                                )
-                                lijekovi[index] = updatedLijek
-                                saveData()
-                                showMessage = "✅ Dodano je ${lijek.pakiranje} komada lijeka '${lijek.naziv}'.\n\nNovo stanje: ${updatedLijek.trenutnoStanje} komada"
-                            }
-                        },
+                        onDeleteLijek = handleDelete,
+                        onRefillLijek = handleRefill,
                         onReorder = onReorder,
                         onDoseTaken = { lijek, scheduledTime, actualTime ->
                             // Handle interval therapy dose taking
@@ -1818,12 +1903,17 @@ fun PocetniEkran(context: Context? = null) {
                                 val updatedInterval = lijek.intervalnoUzimanje.oznaciDozuUzeta(scheduledTime, actualTime)
                                 val updatedLijek = lijek.copy(
                                     intervalnoUzimanje = updatedInterval,
-                                    // Reduce current stock when dose is taken
                                     trenutnoStanje = maxOf(0, lijek.trenutnoStanje - 1)
                                 )
                                 lijekovi[index] = updatedLijek
                                 saveData()
-                                showMessage = "✅ Doza lijeka '${lijek.naziv}' označena kao uzeta u $scheduledTime\n\nPreostalo: ${updatedLijek.trenutnoStanje} komada"
+
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Doza uzeta: ${lijek.naziv}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
                             }
                         },
                         modifier = Modifier.padding(paddingValues)
@@ -1879,14 +1969,16 @@ fun PocetniEkran(context: Context? = null) {
                 }
 
                 if (duplicate) {
-                    showMessage = "Lijek s nazivom '${newLijek.naziv}' već postoji!"
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Lijek '${newLijek.naziv}' već postoji!",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                     return@LijekDialog
                 }
 
-                val lijekWithId = newLijek.copy(id = idCounter++)
-                lijekovi.add(lijekWithId)
-                saveData()
-                showAddLijek = false
+                handleAddLijek(newLijek)
             }
         )
     }
@@ -1902,7 +1994,12 @@ fun PocetniEkran(context: Context? = null) {
                 }
 
                 if (duplicate) {
-                    showMessage = "Lijek s nazivom '${updatedLijek.naziv}' već postoji!"
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Lijek '${updatedLijek.naziv}' već postoji!",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                     return@LijekDialog
                 }
 
@@ -1910,6 +2007,13 @@ fun PocetniEkran(context: Context? = null) {
                 if (index != -1) {
                     lijekovi[index] = updatedLijek
                     saveData()
+
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Lijek '${updatedLijek.naziv}' ažuriran",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 }
                 editLijek = null
             }
@@ -1917,23 +2021,292 @@ fun PocetniEkran(context: Context? = null) {
     }
 }
 
-// Helper funkcije za izračun preostalih doza i sljedećeg vremena
-private fun calculateRemainingDoses(interval: IntervalnoUzimanje): Int {
-    // Jednostavan izračun - ukupno minus uzeto
-    val takenCount = interval.complianceHistory.size
-    return maxOf(0, interval.ukupnoUzimanja - takenCount)
+// Enhanced HomeScreen with new animated components
+@Composable
+fun EnhancedHomeScreen(
+    lijekovi: List<Lijek>,
+    newlyAddedLijekId: Int?,
+    onEditLijek: (Lijek) -> Unit,
+    onDeleteLijek: (Lijek) -> Unit,
+    onRefillLijek: (Lijek) -> Unit,
+    onReorder: (DobaDana, Int, Int) -> Unit,
+    onDoseTaken: (Lijek, String, String?) -> Unit = { _, _, _ -> },
+    modifier: Modifier = Modifier
+) {
+    if (lijekovi.isEmpty()) {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    Icons.Default.LocalPharmacy,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Nemate dodane lijekove",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "Pritisnite + za dodavanje novog lijeka",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Group medicines by time periods
+            val jutarnjiLijekovi = lijekovi.filter { it.jutro && it.tipUzimanja == TipUzimanja.STANDARDNO }
+                .sortedBy { it.sortOrderJutro }
+            val popodnevniLijekovi = lijekovi.filter { it.popodne && it.tipUzimanja == TipUzimanja.STANDARDNO }
+                .sortedBy { it.sortOrderPopodne }
+            val vecernjiLijekovi = lijekovi.filter { it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
+                .sortedBy { it.sortOrderVecer }
+            val intervalniLijekovi = lijekovi.filter { it.tipUzimanja == TipUzimanja.INTERVALNO }
+            val nedefinirani = lijekovi.filter { !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
+
+            // ⚠️ UNDEFINED MEDICINES
+            if (nedefinirani.isNotEmpty()) {
+                item {
+                    TimeGroupHeader(
+                        label = "Nedefiniran raspored",
+                        time = "Nije označeno",
+                        count = nedefinirani.size,
+                        emoji = "⚠️"
+                    )
+                }
+
+                items(nedefinirani, key = { it.id }) { lijek ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = slideInVertically() + fadeIn(),
+                        exit = slideOutVertically() + fadeOut()
+                    ) {
+                        HighlightedLijekCard(
+                            lijek = lijek,
+                            isNew = lijek.id == newlyAddedLijekId,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            onRefill = { onRefillLijek(lijek) },
+                            onDeleteUndo = { /* Handled by parent */ }
+                        )
+                    }
+                }
+
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+            }
+
+            // 🌞 MORNING GROUP
+            if (jutarnjiLijekovi.isNotEmpty()) {
+                item {
+                    TimeGroupHeader(
+                        label = "Jutro",
+                        time = "08:00",
+                        count = jutarnjiLijekovi.size,
+                        emoji = "🌞"
+                    )
+                }
+
+                itemsIndexed(jutarnjiLijekovi, key = { _, lijek -> lijek.id }) { index, lijek ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = slideInVertically(
+                            animationSpec = tween(300, delayMillis = index * 50)
+                        ) + fadeIn(),
+                        exit = slideOutVertically() + fadeOut()
+                    ) {
+                        HighlightedLijekCard(
+                            lijek = lijek,
+                            isNew = lijek.id == newlyAddedLijekId,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            onRefill = { onRefillLijek(lijek) },
+                            onDeleteUndo = { /* Handled by parent */ }
+                        )
+                    }
+                }
+
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+            }
+
+            // 🌅 AFTERNOON GROUP
+            if (popodnevniLijekovi.isNotEmpty()) {
+                item {
+                    TimeGroupHeader(
+                        label = "Podne",
+                        time = "14:00",
+                        count = popodnevniLijekovi.size,
+                        emoji = "🌅"
+                    )
+                }
+
+                itemsIndexed(popodnevniLijekovi, key = { _, lijek -> lijek.id }) { index, lijek ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = slideInVertically(
+                            animationSpec = tween(300, delayMillis = index * 50)
+                        ) + fadeIn(),
+                        exit = slideOutVertically() + fadeOut()
+                    ) {
+                        HighlightedLijekCard(
+                            lijek = lijek,
+                            isNew = lijek.id == newlyAddedLijekId,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            onRefill = { onRefillLijek(lijek) },
+                            onDeleteUndo = { /* Handled by parent */ }
+                        )
+                    }
+                }
+
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+            }
+
+            // 🌙 EVENING GROUP
+            if (vecernjiLijekovi.isNotEmpty()) {
+                item {
+                    TimeGroupHeader(
+                        label = "Večer",
+                        time = "20:00",
+                        count = vecernjiLijekovi.size,
+                        emoji = "🌙"
+                    )
+                }
+
+                itemsIndexed(vecernjiLijekovi, key = { _, lijek -> lijek.id }) { index, lijek ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = slideInVertically(
+                            animationSpec = tween(300, delayMillis = index * 50)
+                        ) + fadeIn(),
+                        exit = slideOutVertically() + fadeOut()
+                    ) {
+                        HighlightedLijekCard(
+                            lijek = lijek,
+                            isNew = lijek.id == newlyAddedLijekId,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            onRefill = { onRefillLijek(lijek) },
+                            onDeleteUndo = { /* Handled by parent */ }
+                        )
+                    }
+                }
+
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+            }
+
+            // ⏰ INTERVAL GROUP
+            if (intervalniLijekovi.isNotEmpty()) {
+                item {
+                    TimeGroupHeader(
+                        label = "Intervalno",
+                        time = "Po rasporedu",
+                        count = intervalniLijekovi.size,
+                        emoji = "⏰"
+                    )
+                }
+
+                items(intervalniLijekovi, key = { it.id }) { lijek ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = slideInVertically() + fadeIn(),
+                        exit = slideOutVertically() + fadeOut()
+                    ) {
+                        IntervalLijekCard(
+                            lijek = lijek,
+                            onEdit = { onEditLijek(lijek) },
+                            onDelete = { onDeleteLijek(lijek) },
+                            onDoseTaken = { scheduledTime, actualTime ->
+                                onDoseTaken(lijek, scheduledTime, actualTime)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
-private fun calculateNextDose(interval: IntervalnoUzimanje): String? {
-    val remainingDoses = calculateRemainingDoses(interval)
-    if (remainingDoses <= 0) return null
+// Missing function: HighlightedLijekCard
+@Composable
+fun HighlightedLijekCard(
+    lijek: Lijek,
+    isNew: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onRefill: () -> Unit,
+    onDeleteUndo: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isNew) 1.05f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "new_card_scale"
+    )
 
-    // Jednostavan izračun sljedećeg vremena
-    val formatter = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-    val currentTime = java.util.Date()
-    val calendar = java.util.Calendar.getInstance()
-    calendar.time = currentTime
-    calendar.add(java.util.Calendar.HOUR_OF_DAY, interval.intervalSati)
+    val animatedAlpha by animateFloatAsState(
+        targetValue = if (isNew) 0.8f else 1.0f,
+        animationSpec = tween(1000),
+        label = "new_card_alpha"
+    )
 
-    return formatter.format(calendar.time)
+    Box(
+        modifier = modifier
+            .scale(animatedScale)
+            .graphicsLayer(alpha = animatedAlpha)
+    ) {
+        LijekCard(
+            lijek = lijek,
+            onEdit = onEdit,
+            onDelete = onDelete,
+            onRefill = onRefill,
+            modifier = Modifier.animateContentSize()
+        )
+    }
 }
+
+// Missing function: AnimatedFAB
+@Composable
+fun AnimatedFAB(
+    isExpanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (isExpanded) 45f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "fab_rotation"
+    )
+
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.primary
+    ) {
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = "Dodaj lijek",
+            modifier = Modifier.graphicsLayer(rotationZ = rotation)
+        )
+    }
+}
+

@@ -149,122 +149,43 @@ object LijekoviDataManager {
             val validation = validateJsonString(cleanedJson)
             if (!validation.isValid) {
                 Log.e(TAG, "JSON validacija neuspješna: ${validation.message}")
-                throw SerializationException("Nevažeći JSON format: ${validation.message}")
+                throw SerializationException("JSON validacija neuspješna: ${validation.message}")
             }
 
-            val result = json.decodeFromString<List<Lijek>>(cleanedJson)
+            val lijekovi = json.decodeFromString<List<Lijek>>(cleanedJson)
+            Log.d(TAG, "Uspješno parsirano ${lijekovi.size} lijekova")
 
-            // Dodatna provjera rezultata
-            result.forEach { lijek ->
-                Log.d(TAG, "Učitan lijek: ${lijek.naziv} (ID: ${lijek.id})")
-                if (lijek.naziv.isBlank()) {
-                    Log.w(TAG, "UPOZORENJE: Lijek s praznim nazivom!")
-                }
-            }
-
-            result
+            lijekovi
         } catch (e: SerializationException) {
-            Log.e(TAG, "SerializationException pri parsiranju JSON-a", e)
-            Log.e(TAG, "Možda nedostaju polja ili su u krivom formatu")
-            Log.e(TAG, "JSON fragment oko greške: ${extractErrorContext(jsonString, e.message)}")
+            Log.e(TAG, "Greška pri deserializaciji JSON-a: ${e.message}")
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Opća greška pri parsiranju JSON-a", e)
-            throw e
+            Log.e(TAG, "Neočekivana greška pri parsiranju JSON-a: ${e.message}")
+            throw SerializationException("Neočekivana greška pri parsiranju", e)
         }
     }
 
     /**
-     * Čisti JSON string od čestih problema
+     * Čisti JSON string od mogućih problema
      */
     private fun cleanJsonString(jsonString: String): String {
-        var cleaned = jsonString.trim()
-
-        // Ukloni BOM (Byte Order Mark) ako postoji
-        if (cleaned.startsWith("\uFEFF")) {
-            cleaned = cleaned.substring(1)
-        }
-
-        // Popravi česti problem sa ']rue' umesto 'true'
-        cleaned = cleaned.replace("]rue", "true")
-        cleaned = cleaned.replace("]alse", "false")
-
-        // Popravi duplirane znakove na krajevima
-        while (cleaned.endsWith("]]") && cleaned.count { it == ']' } > cleaned.count { it == '[' }) {
-            cleaned = cleaned.dropLast(1)
-        }
-
-        // Provjeri da li postoje nepotrebni znakovi nakon zatvaranja JSON-a
-        val lastBracket = cleaned.lastIndexOf(']')
-        if (lastBracket != -1 && lastBracket < cleaned.length - 1) {
-            val afterBracket = cleaned.substring(lastBracket + 1).trim()
-            if (afterBracket.isNotEmpty()) {
-                Log.w(TAG, "Pronađeni nepotrebni znakovi nakon JSON-a: '$afterBracket'")
-                cleaned = cleaned.substring(0, lastBracket + 1)
-            }
-        }
-
-        return cleaned
+        return jsonString
+            .trim()
+            .replace("\uFEFF", "") // Remove BOM if present
+            .replace("\\n", "")
+            .replace("\\r", "")
     }
 
     /**
-     * Izvuci kontekst oko greške za debugging
+     * Validira JSON string prije parsiranja
      */
-    private fun extractErrorContext(jsonString: String, errorMessage: String?): String {
-        return try {
-            // Pokušaj pronaći offset iz error message
-            val offsetMatch = Regex("offset (\\d+)").find(errorMessage ?: "")
-            val offset = offsetMatch?.groupValues?.get(1)?.toIntOrNull()
+    private fun validateJsonString(jsonString: String): ValidationResult {
+        val trimmed = jsonString.trim()
 
-            if (offset != null && offset < jsonString.length) {
-                val start = maxOf(0, offset - 50)
-                val end = minOf(jsonString.length, offset + 50)
-                val context = jsonString.substring(start, end)
-                "...${context}... (around position $offset)"
-            } else {
-                "Last 100 characters: ${jsonString.takeLast(100)}"
-            }
-        } catch (e: Exception) {
-            "Cannot extract error context: ${e.message}"
-        }
-    }
-
-    /**
-     * Briše sve lokalno spremljene podatke
-     */
-    @Suppress("unused")
-    fun clearLocalStorage(context: Context): Boolean {
-        return try {
-            val file = File(context.filesDir, LOCAL_FILE_NAME)
-            if (file.exists()) {
-                file.delete()
-            } else {
-                true
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-
-    /**
-     * Proverava da li postoje lokalno spremljeni podaci
-     */
-    @Suppress("unused")
-    fun hasLocalData(context: Context): Boolean {
-        val file = File(context.filesDir, LOCAL_FILE_NAME)
-        return file.exists() && file.length() > 0
-    }
-
-    /**
-     * Validira JSON string prije importa
-     */
-    fun validateJsonString(jsonString: String): ValidationResult {
-        if (jsonString.trim().isEmpty()) {
+        if (trimmed.isEmpty()) {
             return ValidationResult(false, "JSON string je prazan")
         }
 
-        val trimmed = jsonString.trim()
         if (!trimmed.startsWith("[")) {
             return ValidationResult(false, "JSON ne počinje s '[' - nije array")
         }
@@ -273,17 +194,20 @@ object LijekoviDataManager {
             return ValidationResult(false, "JSON ne završava s ']' - nije array")
         }
 
-        return try {
-            // Jednostavna provjera - pokušaj parsirati JSON sa Kotlin Serialization
-            json.decodeFromString<List<Lijek>>(trimmed)
-            ValidationResult(true, "JSON je valjan")
-        } catch (e: SerializationException) {
-            ValidationResult(false, "Greška deserializacije: ${e.message}")
-        } catch (e: Exception) {
-            ValidationResult(false, "Neočekivana greška: ${e.message}")
+        // Osnovne provjere strukture
+        val openBrackets = trimmed.count { it == '[' }
+        val closeBrackets = trimmed.count { it == ']' }
+
+        if (openBrackets != closeBrackets) {
+            return ValidationResult(false, "Neispravna struktura zagrada: $openBrackets otvorenih, $closeBrackets zatvorenih")
         }
+
+        return ValidationResult(true, "JSON izgleda ispravno")
     }
 
+    /**
+     * Rezultat validacije JSON-a
+     */
     data class ValidationResult(
         val isValid: Boolean,
         val message: String

@@ -58,6 +58,7 @@ import android.content.Context
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import androidx.compose.foundation.shape.CircleShape
 
 // Subtle elevation to use consistently for medicine cards
 private val subtleCardElevation = 4.dp
@@ -105,64 +106,74 @@ fun TimeGroupHeader(
     emoji: String,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 1.dp,
-                shape = RoundedCornerShape(12.dp),
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-            )
-            .clip(RoundedCornerShape(12.dp)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        shape = RoundedCornerShape(12.dp)
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(20.dp)),
+        color = Color(0xFFF6F7FB), // svijetla pastelna podloga
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 20.dp, vertical = 18.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(
-                    text = emoji,
-                    style = MaterialTheme.typography.headlineMedium
-                )
-
-                Column {
+                // Ikona u kružnom pastel backgroundu
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = when (label) {
+                                "Jutro" -> Color(0xFFFFF8E1) // žućkasta
+                                "Podne" -> Color(0xFFE1F5FE) // plavičasta
+                                "Večer" -> Color(0xFFEDE7F6) // ljubičasta
+                                else -> Color(0xFFF6F7FB)
+                            },
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = emoji,
+                        fontSize = 28.sp
+                    )
+                }
+                Column(
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Text(
                         text = label,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFF222B45)
                     )
                     Text(
                         text = time,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = Color(0xFF8F9BB3)
                     )
                 }
             }
-
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                shape = androidx.compose.foundation.shape.CircleShape
+            // Badge za broj lijekova
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = Color(0xFF222B45),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = count.toString(),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             }
         }
@@ -2068,19 +2079,16 @@ fun EnhancedHomeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Group medicines by time periods
-            val jutarnjiLijekovi = lijekovi.filter { it.jutro && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderJutro }
-            val popodnevniLijekovi = lijekovi.filter { it.popodne && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderPopodne }
-            val vecernjiLijekovi = lijekovi.filter { it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderVecer }
-            val intervalniLijekovi = lijekovi.filter { it.tipUzimanja == TipUzimanja.INTERVALNO }
-            val nedefinirani = lijekovi.filter { !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
+            // Group medicines by time periods (snapshot to avoid concurrent modification)
+            val jutarnjiLijekovi = lijekovi.filter { it.jutro && it.tipUzimanja == TipUzimanja.STANDARDNO }.sortedBy { it.sortOrderJutro }.toList()
+            val popodnevniLijekovi = lijekovi.filter { it.popodne && it.tipUzimanja == TipUzimanja.STANDARDNO }.sortedBy { it.sortOrderPopodne }.toList()
+            val vecernjiLijekovi = lijekovi.filter { it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }.sortedBy { it.sortOrderVecer }.toList()
+            val intervalniLijekovi = lijekovi.filter { it.tipUzimanja == TipUzimanja.INTERVALNO }.toList()
+            val nedefinirani = lijekovi.filter { !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }.toList()
 
             // ⚠️ UNDEFINED MEDICINES
             if (nedefinirani.isNotEmpty()) {
-                item {
+                item(key = "header_nedefinirani") {
                     TimeGroupHeader(
                         label = "Nedefiniran raspored",
                         time = "Nije označeno",
@@ -2089,7 +2097,7 @@ fun EnhancedHomeScreen(
                     )
                 }
 
-                items(nedefinirani, key = { it.id }) { lijek ->
+                items(nedefinirani, key = { it.id to "nedefinirani" }) { lijek ->
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically() + fadeIn(),
@@ -2106,12 +2114,12 @@ fun EnhancedHomeScreen(
                     }
                 }
 
-                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item(key = "spacer_nedefinirani") { Spacer(modifier = Modifier.height(8.dp)) }
             }
 
             // 🌞 MORNING GROUP
             if (jutarnjiLijekovi.isNotEmpty()) {
-                item {
+                item(key = "header_jutro") {
                     TimeGroupHeader(
                         label = "Jutro",
                         time = "08:00",
@@ -2120,7 +2128,7 @@ fun EnhancedHomeScreen(
                     )
                 }
 
-                itemsIndexed(jutarnjiLijekovi, key = { _, lijek -> lijek.id }) { index, lijek ->
+                itemsIndexed(jutarnjiLijekovi, key = { _, lijek -> lijek.id to "jutro" }) { index, lijek ->
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2139,12 +2147,12 @@ fun EnhancedHomeScreen(
                     }
                 }
 
-                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item(key = "spacer_jutro") { Spacer(modifier = Modifier.height(8.dp)) }
             }
 
             // 🌅 AFTERNOON GROUP
             if (popodnevniLijekovi.isNotEmpty()) {
-                item {
+                item(key = "header_podne") {
                     TimeGroupHeader(
                         label = "Podne",
                         time = "14:00",
@@ -2153,7 +2161,7 @@ fun EnhancedHomeScreen(
                     )
                 }
 
-                itemsIndexed(popodnevniLijekovi, key = { _, lijek -> lijek.id }) { index, lijek ->
+                itemsIndexed(popodnevniLijekovi, key = { _, lijek -> lijek.id to "podne" }) { index, lijek ->
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2172,12 +2180,12 @@ fun EnhancedHomeScreen(
                     }
                 }
 
-                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item(key = "spacer_podne") { Spacer(modifier = Modifier.height(8.dp)) }
             }
 
             // 🌙 EVENING GROUP
             if (vecernjiLijekovi.isNotEmpty()) {
-                item {
+                item(key = "header_vecer") {
                     TimeGroupHeader(
                         label = "Večer",
                         time = "20:00",
@@ -2186,7 +2194,7 @@ fun EnhancedHomeScreen(
                     )
                 }
 
-                itemsIndexed(vecernjiLijekovi, key = { _, lijek -> lijek.id }) { index, lijek ->
+                itemsIndexed(vecernjiLijekovi, key = { _, lijek -> lijek.id to "vecer" }) { index, lijek ->
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically(
@@ -2205,12 +2213,12 @@ fun EnhancedHomeScreen(
                     }
                 }
 
-                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item(key = "spacer_vecer") { Spacer(modifier = Modifier.height(8.dp)) }
             }
 
             // ⏰ INTERVAL GROUP
             if (intervalniLijekovi.isNotEmpty()) {
-                item {
+                item(key = "header_intervalno") {
                     TimeGroupHeader(
                         label = "Intervalno",
                         time = "Po rasporedu",
@@ -2219,7 +2227,7 @@ fun EnhancedHomeScreen(
                     )
                 }
 
-                items(intervalniLijekovi, key = { it.id }) { lijek ->
+                items(intervalniLijekovi, key = { it.id to "intervalno" }) { lijek ->
                     AnimatedVisibility(
                         visible = true,
                         enter = slideInVertically() + fadeIn(),

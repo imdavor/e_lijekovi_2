@@ -199,121 +199,197 @@ fun LijekCard(
         MaterialTheme.colorScheme.primary
     }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .offset { IntOffset(offsetX.roundToInt(), 0) }
-            .pointerInput(lijek.id) {
-                detectDragGesturesAfterLongPress(
-                    onDragEnd = {
-                        when {
-                            offsetX < -maxSwipeDistance -> {
-                                // Swipe lijevo = brisanje
-                                onDelete()
-                                offsetX = 0f
-                            }
-                            offsetX > maxSwipeDistance -> {
-                                // Swipe desno = dodaj terapiju
-                                onRefill()
-                                offsetX = 0f
-                            }
-                            else -> offsetX = 0f
-                        }
-                    },
-                    onDragCancel = { offsetX = 0f }
-                ) { change, dragAmount ->
-                    change.consume()
-                    offsetX += dragAmount.x
-                    // Ograniči swipe na maksimalnu udaljenost
-                    offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
-                }
-            }
-            .clickable { onEdit() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f) // Crveno za brisanje
-                offsetX > 50f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) // Plavo za terapiju
-                isLowStock -> Color(0xFFFFF8E1) // suptilna žuta (Material Yellow 50)
-                else -> MaterialTheme.colorScheme.surface
-            }
-        )
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showRefillDialog by remember { mutableStateOf(false) }
+    var pendingAction by remember { mutableStateOf<(()->Unit)?>(null) }
+
+    Box(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // Use Box to overlay a full-height right-edge stripe
-        Box(modifier = Modifier
-            .fillMaxWidth()
+        // Swipe background (dynamic, always under Card)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    when {
+                        offsetX > 20f -> Color(0xFF4CAF50)
+                        offsetX < -20f -> Color(0xFFD32F2F)
+                        else -> Color.Transparent
+                    }
+                ),
+            contentAlignment = when {
+                offsetX > 20f -> Alignment.CenterStart
+                offsetX < -20f -> Alignment.CenterEnd
+                else -> Alignment.Center
+            }
         ) {
-            Column(
+            when {
+                offsetX > 20f -> Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Dodaj terapiju",
+                    tint = Color.White,
+                    modifier = Modifier.padding(start = 24.dp).size(32.dp)
+                )
+                offsetX < -20f -> Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Obriši lijek",
+                    tint = Color.White,
+                    modifier = Modifier.padding(end = 24.dp).size(32.dp)
+                )
+            }
+        }
+        // ...existing Card code...
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .pointerInput(lijek.id) {
+                    detectDragGesturesAfterLongPress(
+                        onDragEnd = {
+                            when {
+                                offsetX < -maxSwipeDistance -> {
+                                    pendingAction = {
+                                        showDeleteDialog = true
+                                    }
+                                    offsetX = 0f
+                                }
+                                offsetX > maxSwipeDistance -> {
+                                    pendingAction = {
+                                        showRefillDialog = true
+                                    }
+                                    offsetX = 0f
+                                }
+                                else -> offsetX = 0f
+                            }
+                            pendingAction?.invoke()
+                            pendingAction = null
+                        },
+                        onDragCancel = { offsetX = 0f }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        offsetX += dragAmount.x
+                        offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
+                    }
+                }
+                .clickable { onEdit() },
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = when {
+                    offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                    offsetX > 50f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    isLowStock -> Color(0xFFFFF8E1)
+                    else -> MaterialTheme.colorScheme.surface
+                }
+            )
+        ) {
+            // Use Box to overlay a full-height right-edge stripe
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
-                    .padding(end = 8.dp) // leave a little space from the stripe
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .padding(end = 8.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = lijek.naziv,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = lijek.naziv,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
 
-                        // New: plain textual 'Stanje' on next line (no chip)
-                        Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "💊 Stanje: ${lijek.trenutnoStanje}/${lijek.pakiranje}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    if (lijek.napomene.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "💊 Stanje: ${lijek.trenutnoStanje}/${lijek.pakiranje}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant, // tamno žuta za tekst
-                            fontWeight = FontWeight.Medium
+                            text = lijek.napomene,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    // Prikaz swipe hintova
+                    if (offsetX < -50f) {
+                        Text(
+                            text = "← Swipe za brisanje",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    } else if (offsetX > 50f) {
+                        Text(
+                            text = "Swipe za novu terapiju →",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
                 }
-
-                // Napomene
-                if (lijek.napomene.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = lijek.napomene,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Prikaz swipe hintova
-                if (offsetX < -50f) {
-                    Text(
-                        text = "← Swipe za brisanje",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                } else if (offsetX > 50f) {
-                    Text(
-                        text = "Swipe za novu terapiju →",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
+                // Full-height right-side vertical status stripe
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(6.dp)
+                        .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
+                        .background(
+                            color = if (isLowStock) MaterialTheme.colorScheme.error else accentColor
+                        )
+                )
             }
-
-            // Full-height right-side vertical status stripe
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .width(6.dp)
-                    .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
-                    .background(
-                        color = if (isLowStock) MaterialTheme.colorScheme.error else accentColor
-                    )
-            )
         }
+    }
+    // Potvrda za brisanje
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Obrisati lijek?") },
+            text = { Text("Jeste li sigurni da želite obrisati lijek '${lijek.naziv}'?") },
+            confirmButton = {
+                Button(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) { Text("Obriši") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Odustani") }
+            }
+        )
+    }
+    // Potvrda za dodavanje terapije
+    if (showRefillDialog) {
+        AlertDialog(
+            onDismissRequest = { showRefillDialog = false },
+            title = { Text("Dodati terapiju?") },
+            text = { Text("Želite li dodati novu terapiju za '${lijek.naziv}'?") },
+            confirmButton = {
+                Button(onClick = {
+                    showRefillDialog = false
+                    onRefill()
+                }) { Text("Dodaj") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRefillDialog = false }) { Text("Odustani") }
+            }
+        )
     }
 }
 
@@ -1455,7 +1531,7 @@ fun DraggableLijekCard(
                             Text(
                                 text = "💊 Stanje: ${lijek.trenutnoStanje}/${lijek.pakiranje}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant, // tamno žuta za tekst
+                                color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             )
                         }

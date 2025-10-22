@@ -1,73 +1,45 @@
 package com.example.e_lijekovi_2
 
 import android.os.Bundle
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.FilterChip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.zIndex
-import androidx.compose.animation.core.*
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.animateContentSize
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import android.content.Context
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.ui.viewinterop.AndroidView
-
-// Subtle elevation to use consistently for medicine cards
-private val subtleCardElevation = 4.dp
 
 // Helper functions for interval therapy calculations
 private fun calculateRemainingDoses(interval: IntervalnoUzimanje): Int {
@@ -122,517 +94,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Komponenta za zaglavlje vremenske grupe
-@Composable
-fun TimeGroupHeader(
-    label: String,
-    time: String,
-    count: Int,
-    emoji: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clip(RoundedCornerShape(20.dp)),
-        color = Color(0xFFF6F7FB), // svijetla pastelna podloga
-        shadowElevation = 2.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Ikona u kružnom pastel backgroundu
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            color = when (label) {
-                                "Jutro" -> Color(0xFFFFF8E1) // žućkasta
-                                "Podne" -> Color(0xFFE1F5FE) // plavičasta
-                                "Večer" -> Color(0xFFEDE7F6) // ljubičasta
-                                else -> Color(0xFFF6F7FB)
-                            },
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = emoji,
-                        fontSize = 28.sp
-                    )
-                }
-                Column(
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF222B45)
-                    )
-                    Text(
-                        text = time,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF8F9BB3)
-                    )
-                }
-            }
-            // Badge za broj lijekova
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = Color(0xFF222B45),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = count.toString(),
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-        }
-    }
-}
-
-// Komponenta za standardnu karticu lijeka
-@Composable
-fun LijekCard(
-    lijek: Lijek,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onRefill: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val isLowStock = lijek.trenutnoStanje <= 7
-    var offsetX by remember { mutableStateOf(0f) }
-    val maxSwipeDistance = 200f
-
-    val accentColor = try {
-        Color(android.graphics.Color.parseColor(lijek.boja))
-    } catch (e: Exception) {
-        MaterialTheme.colorScheme.primary
-    }
-
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var showRefillDialog by remember { mutableStateOf(false) }
-    var pendingAction by remember { mutableStateOf<(()->Unit)?>(null) }
-
-    Box(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // Swipe background (dynamic, always under Card)
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(16.dp))
-                .background(
-                    when {
-                        offsetX > 20f -> Color(0xFF4CAF50)
-                        offsetX < -20f -> Color(0xFFD32F2F)
-                        else -> Color.Transparent
-                    }
-                ),
-            contentAlignment = when {
-                offsetX > 20f -> Alignment.CenterStart
-                offsetX < -20f -> Alignment.CenterEnd
-                else -> Alignment.Center
-            }
-        ) {
-            when {
-                offsetX > 20f -> Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Dodaj terapiju",
-                    tint = Color.White,
-                    modifier = Modifier.padding(start = 24.dp).size(32.dp)
-                )
-                offsetX < -20f -> Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Obriši lijek",
-                    tint = Color.White,
-                    modifier = Modifier.padding(end = 24.dp).size(32.dp)
-                )
-            }
-        }
-        // ...existing Card code...
-        Card(
-            modifier = modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .offset { IntOffset(offsetX.roundToInt(), 0) }
-                .pointerInput(lijek.id) {
-                    detectDragGesturesAfterLongPress(
-                        onDragEnd = {
-                            when {
-                                offsetX < -maxSwipeDistance -> {
-                                    pendingAction = {
-                                        showDeleteDialog = true
-                                    }
-                                    offsetX = 0f
-                                }
-                                offsetX > maxSwipeDistance -> {
-                                    pendingAction = {
-                                        showRefillDialog = true
-                                    }
-                                    offsetX = 0f
-                                }
-                                else -> offsetX = 0f
-                            }
-                            pendingAction?.invoke()
-                            pendingAction = null
-                        },
-                        onDragCancel = { offsetX = 0f }
-                    ) { change, dragAmount ->
-                        change.consume()
-                        offsetX += dragAmount.x
-                        offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
-                    }
-                }
-                .clickable { onEdit() },
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = when {
-                    offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                    offsetX > 50f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    isLowStock -> Color(0xFFFFF8E1)
-                    else -> MaterialTheme.colorScheme.surface
-                }
-            )
-        ) {
-            // Use Box to overlay a full-height right-edge stripe
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .padding(end = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = lijek.naziv,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "💊 ${lijek.trenutnoStanje}/${lijek.pakiranje}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    if (lijek.napomene.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = lijek.napomene,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    // Prikaz swipe hintova
-                    if (offsetX < -50f) {
-                        Text(
-                            text = "← Swipe za brisanje",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    } else if (offsetX > 50f) {
-                        Text(
-                            text = "Swipe za novu terapiju →",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
-                // Full-height right-side vertical status stripe
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(6.dp)
-                        .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
-                        .background(
-                            color = if (isLowStock) MaterialTheme.colorScheme.error else accentColor
-                        )
-                )
-            }
-        }
-    }
-    // Potvrda za brisanje
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Obrisati lijek?") },
-            text = { Text("Jeste li sigurni da želite obrisati lijek '${lijek.naziv}'?") },
-            confirmButton = {
-                Button(onClick = {
-                    showDeleteDialog = false
-                    onDelete()
-                }) { Text("Obriši") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Odustani") }
-            }
-        )
-    }
-    // Potvrda za dodavanje terapije
-    if (showRefillDialog) {
-        AlertDialog(
-            onDismissRequest = { showRefillDialog = false },
-            title = { Text("Dodati terapiju?") },
-            text = { Text("Želite li dodati novu terapiju za '${lijek.naziv}'?") },
-            confirmButton = {
-                Button(onClick = {
-                    showRefillDialog = false
-                    onRefill()
-                }) { Text("Dodaj") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRefillDialog = false }) { Text("Odustani") }
-            }
-        )
-    }
-}
-
-// Komponenta za intervalne lijekove
-@Composable
-fun IntervalLijekCard(
-    lijek: Lijek,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onDoseTaken: (String, String?) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            // subtle shadow so interval medicine cards also have a gentle separation
-            .shadow(
-                elevation = subtleCardElevation,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-            )
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onEdit() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Header s nazivom lijeka i akcijskim gumbovima
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = lijek.naziv,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = lijek.doza,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Terapija status badge
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "⏰ TERAPIJA",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // Delete button
-                    IconButton(
-                        onClick = { showDeleteConfirmation = true },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Obriši intervalnu terapiju",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            lijek.intervalnoUzimanje?.let { interval ->
-                // Jednostavan prikaz informacija o terapiji
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Preostala uzimanja
-                    InfoChip(
-                        icon = "💊",
-                        label = "Preostalo",
-                        value = "${calculateRemainingDoses(interval)} kom",
-                        isWarning = false
-                    )
-
-                    // Interval uzimanja
-                    InfoChip(
-                        icon = "⏰",
-                        label = "Interval",
-                        value = "svakih ${interval.intervalSati}h",
-                        isWarning = false
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Sljedeće uzimanje i gumb za uzmi
-                val nextTime = calculateNextDose(interval)
-                if (nextTime != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🕐 Sljedeće: $nextTime",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Button(
-                            onClick = { onDoseTaken(nextTime, null) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Text("Uzmi dozu")
-                        }
-                    }
-                } else {
-                    // Terapija završena
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "✅ Terapija završena",
-                            modifier = Modifier.padding(12.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    // Delete confirmation dialog
-    if (showDeleteConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmation = false },
-            title = {
-                Text(
-                    text = "Obriši intervalnu terapiju?",
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
-                    Text("Želite li obrisati intervalnu terapiju za:")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "${lijek.naziv} (${lijek.doza})",
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Ova akcija će ukloniti sav povijest uzimanja i ne može se poništiti.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteConfirmation = false
-                        onDelete()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Obriši", color = MaterialTheme.colorScheme.onError)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDeleteConfirmation = false }
-                ) {
-                    Text("Odustani")
-                }
-            }
-        )
-    }
-}
-
 // Dialog za dodavanje/uređivanje lijeka
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LijekDialog(
     lijek: Lijek?,
-    existingLijekovi: List<Lijek>,
     onDismiss: () -> Unit,
     onSave: (Lijek) -> Unit
 ) {
@@ -1292,480 +758,6 @@ fun AboutScreen(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-fun HomeScreen(
-    lijekovi: List<Lijek>,
-    onEditLijek: (Lijek) -> Unit,
-    onDeleteLijek: (Lijek) -> Unit,
-    onRefillLijek: (Lijek) -> Unit,
-    onReorder: (DobaDana, Int, Int) -> Unit, // (grupa, fromId, toId)
-    onDoseTaken: (Lijek, String, String?) -> Unit = { _, _, _ -> }, // (lijek, scheduledTime, actualTime)
-    modifier: Modifier = Modifier
-) {
-    if (lijekovi.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Default.LocalPharmacy, // Zamenio Medication sa LocalPharmacy
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Nemate dodane lijekove",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Pritisnite + za dodavanje novog lijeka",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    } else {
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Grupiraj lijekove
-            val jutarnjiLijekovi = lijekovi.filter { it.jutro && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderJutro }
-            val popodnevniLijekovi = lijekovi.filter { it.popodne && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderPopodne }
-            val vecernjiLijekovi = lijekovi.filter { it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
-                .sortedBy { it.sortOrderVecer }
-            val intervalniLijekovi = lijekovi.filter { it.tipUzimanja == TipUzimanja.INTERVALNO }
-            val nedefinirani = lijekovi.filter { !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }
-
-            // ⚠️ NEDEFINIRANI LIJEKOVI grupa
-            if (nedefinirani.isNotEmpty()) {
-                TimeGroupHeader(
-                    label = "Nedefiniran raspored",
-                    time = "Nije označeno",
-                    count = nedefinirani.size,
-                    emoji = "⚠️"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                nedefinirani.forEach { lijek ->
-                    LijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        onRefill = { onRefillLijek(lijek) },
-                        modifier = Modifier
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // 🌞 JUTRO grupa
-            if (jutarnjiLijekovi.isNotEmpty()) {
-                TimeGroupHeader(
-                    label = "Jutro",
-                    time = "08:00",
-                    count = jutarnjiLijekovi.size,
-                    emoji = "🌞"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                jutarnjiLijekovi.forEachIndexed { index, lijek ->
-                    var dy by remember(lijek.id) { mutableStateOf(0f) }
-                    val threshold = 30f
-                    LijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        onRefill = { onRefillLijek(lijek) },
-                        modifier = Modifier
-                            .pointerInput(lijek.id) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragEnd = { dy = 0f },
-                                    onDragCancel = { dy = 0f }
-                                ) { change, dragAmount ->
-                                    change.consume()
-                                    dy += dragAmount.y
-                                    if (dy <= -threshold && index > 0) {
-                                        val prevId = jutarnjiLijekovi[index - 1].id
-                                        onReorder(DobaDana.JUTRO, lijek.id, prevId)
-                                        dy = 0f
-                                    } else if (dy >= threshold && index < jutarnjiLijekovi.size - 1) {
-                                        val nextId = jutarnjiLijekovi[index + 1].id
-                                        onReorder(DobaDana.JUTRO, lijek.id, nextId)
-                                        dy = 0f
-                                    }
-                                }
-                            }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // 🌅 PODNE grupa
-            if (popodnevniLijekovi.isNotEmpty()) {
-                TimeGroupHeader(
-                    label = "Podne",
-                    time = "14:00",
-                    count = popodnevniLijekovi.size,
-                    emoji = "🌅"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                popodnevniLijekovi.forEachIndexed { index, lijek ->
-                    var dy by remember(lijek.id) { mutableStateOf(0f) }
-                    val threshold = 30f
-                    LijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        onRefill = { onRefillLijek(lijek) },
-                        modifier = Modifier
-                            .pointerInput(lijek.id) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragEnd = { dy = 0f },
-                                    onDragCancel = { dy = 0f }
-                                ) { change, dragAmount ->
-                                    change.consume()
-                                    dy += dragAmount.y
-                                    if (dy <= -threshold && index > 0) {
-                                        val prevId = popodnevniLijekovi[index - 1].id
-                                        onReorder(DobaDana.POPODNE, lijek.id, prevId)
-                                        dy = 0f
-                                    } else if (dy >= threshold && index < popodnevniLijekovi.size - 1) {
-                                        val nextId = popodnevniLijekovi[index + 1].id
-                                        onReorder(DobaDana.POPODNE, lijek.id, nextId)
-                                        dy = 0f
-                                    }
-                                }
-                            }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // 🌙 VEČER grupa
-            if (vecernjiLijekovi.isNotEmpty()) {
-                TimeGroupHeader(
-                    label = "Večer",
-                    time = "20:00",
-                    count = vecernjiLijekovi.size,
-                    emoji = "🌙"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                vecernjiLijekovi.forEachIndexed { index, lijek ->
-                    var dy by remember(lijek.id) { mutableStateOf(0f) }
-                    val threshold = 30f
-                    LijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        onRefill = { onRefillLijek(lijek) },
-                        modifier = Modifier
-                            .pointerInput(lijek.id) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragEnd = { dy = 0f },
-                                    onDragCancel = { dy = 0f }
-                                ) { change, dragAmount ->
-                                    change.consume()
-                                    dy += dragAmount.y
-                                    if (dy <= -threshold && index > 0) {
-                                        val prevId = vecernjiLijekovi[index - 1].id
-                                        onReorder(DobaDana.VECER, lijek.id, prevId)
-                                        dy = 0f
-                                    } else if (dy >= threshold && index < vecernjiLijekovi.size - 1) {
-                                        val nextId = vecernjiLijekovi[index + 1].id
-                                        onReorder(DobaDana.VECER, lijek.id, nextId)
-                                        dy = 0f
-                                    }
-                                }
-                            }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // ⏰ INTERVALNO grupa
-            if (intervalniLijekovi.isNotEmpty()) {
-                TimeGroupHeader(
-                    label = "Intervalno",
-                    time = "Po rasporedu",
-                    count = intervalniLijekovi.size,
-                    emoji = "⏰"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                intervalniLijekovi.forEach { lijek ->
-                    IntervalLijekCard(
-                        lijek = lijek,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        onDoseTaken = { scheduledTime, actualTime ->
-                            onDoseTaken(lijek, scheduledTime, actualTime)
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-        }
-    }
-}
-
-
-// Google Wallet style draggable kartice lijeka
-@Composable
-fun DraggableLijekCard(
-    lijek: Lijek,
-    isDragging: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onRefill: () -> Unit,
-    onDragStart: () -> Unit,
-    onDragEnd: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val haptics = LocalHapticFeedback.current
-    val isLowStock = lijek.trenutnoStanje <= 7
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
-    val maxSwipeDistance = 200f
-
-    // Animacije za drag state
-    val scale by animateFloatAsState(
-        targetValue = if (isDragging) 1.05f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "card_scale"
-    )
-
-    val rotation by animateFloatAsState(
-        targetValue = if (isDragging) (offsetX * 0.01f).coerceIn(-3f, 3f) else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "card_rotation"
-    )
-
-    val accentColor = try {
-        Color(android.graphics.Color.parseColor(lijek.boja))
-    } catch (e: Exception) {
-        MaterialTheme.colorScheme.primary
-    }
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            // add subtle shadow
-            .shadow(
-                elevation = subtleCardElevation,
-                shape = RoundedCornerShape(12.dp),
-                spotColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-            )
-            .graphicsLayer {
-                translationX = offsetX
-                translationY = offsetY
-                rotationZ = rotation
-            }
-            .zIndex(if (isDragging) 1f else 0f)
-            .pointerInput(lijek.id) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onDragStart()
-                    },
-                    onDragEnd = {
-                        when {
-                            offsetX < -maxSwipeDistance -> {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onDelete()
-                            }
-                            offsetX > maxSwipeDistance -> {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onRefill()
-                            }
-                        }
-                        offsetX = 0f
-                        offsetY = 0f
-                        onDragEnd()
-                    },
-                    onDragCancel = {
-                        offsetX = 0f
-                        offsetY = 0f
-                        onDragEnd()
-                    }
-                ) { change, dragAmount ->
-                    change.consume()
-                    offsetX += dragAmount.x
-                    offsetY += dragAmount.y
-
-                    // Ograniči horizontalni swipe
-                    offsetX = offsetX.coerceIn(-maxSwipeDistance * 1.5f, maxSwipeDistance * 1.5f)
-                    // Ograniči vertikalni drag
-                    offsetY = offsetY.coerceIn(-100f, 100f)
-                }
-            }
-            .clickable(enabled = !isDragging) { onEdit() },
-        // Removed dynamic elevation to avoid outer shadow previously; now we keep only subtle shadow via modifier
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isDragging -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
-                offsetX < -50f -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                offsetX > 50f -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                isLowStock -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
-                else -> MaterialTheme.colorScheme.surface
-            }
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Box {
-            // Glavni sadržaj kartice + overlay stripe
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .padding(end = 8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = lijek.naziv,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "💊 Stanje: ${lijek.trenutnoStanje}/${lijek.pakiranje}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    if (lijek.napomene.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = lijek.napomene,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    // Prikaz swipe hintova
-                    if (offsetX < -50f) {
-                        Text(
-                            text = "← Swipe za brisanje",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    } else if (offsetX > 50f) {
-                        Text(
-                            text = "Swipe za novu terapiju →",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-                }
-
-                // Full-height right-side vertical status stripe
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(6.dp)
-                        .clip(RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
-                        .background(
-                            color = if (isLowStock) MaterialTheme.colorScheme.error else accentColor
-                        )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun InfoChip(
-    icon: String,
-    label: String,
-    value: String,
-    isWarning: Boolean = false
-) {
-    Card(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp)),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (isWarning)
-                MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-            else
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (icon.isNotEmpty()) {
-                Text(
-                    text = icon,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (isWarning)
-                    MaterialTheme.colorScheme.error
-                else
-                    MaterialTheme.colorScheme.onSurface,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PocetniEkran(context: Context? = null) {
@@ -1776,7 +768,6 @@ fun PocetniEkran(context: Context? = null) {
     var showExportImportDialog by remember { mutableStateOf(false) }
     var showMessage by remember { mutableStateOf<String?>(null) }
     var currentScreen by remember { mutableStateOf("home") }
-    var newlyAddedLijekId by remember { mutableStateOf<Int?>(null) }
     var recentlyDeletedLijek by remember { mutableStateOf<Lijek?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -1818,28 +809,32 @@ fun PocetniEkran(context: Context? = null) {
     // Enhanced delete with undo functionality
     val handleDelete: (Lijek) -> Unit = { lijek ->
         recentlyDeletedLijek = lijek
-        lijekovi.remove(lijek)
-        saveData()
+        val index = lijekovi.indexOfFirst { it.id == lijek.id }
+        if (index != -1) {
+            lijekovi.removeAt(index)
+            saveData()
 
-        scope.launch {
-            val result = snackbarHostState.showSnackbar(
-                message = "Lijek '${lijek.naziv}' je obrisan",
-                actionLabel = "Poništi",
-                duration = SnackbarDuration.Long
-            )
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Lijek '${lijek.naziv}' je obrisan",
+                    actionLabel = "Poništi",
+                    duration = SnackbarDuration.Long
+                )
 
-            if (result == SnackbarResult.ActionPerformed) {
-                // Restore deleted medicine
-                recentlyDeletedLijek?.let { deletedLijek ->
-                    lijekovi.add(deletedLijek)
-                    saveData()
-                    snackbarHostState.showSnackbar(
-                        message = "Lijek '${deletedLijek.naziv}' je vraćen",
-                        duration = SnackbarDuration.Short
-                    )
+                if (result == SnackbarResult.ActionPerformed) {
+                    // Restore deleted medicine at the same position
+                    recentlyDeletedLijek?.let { deletedLijek ->
+                        val restoreIndex = if (index <= lijekovi.size) index else lijekovi.size
+                        lijekovi.add(restoreIndex, deletedLijek)
+                        saveData()
+                        snackbarHostState.showSnackbar(
+                            message = "Lijek '${deletedLijek.naziv}' je vraćen",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 }
+                recentlyDeletedLijek = null
             }
-            recentlyDeletedLijek = null
         }
     }
 
@@ -1847,7 +842,6 @@ fun PocetniEkran(context: Context? = null) {
     val handleAddLijek: (Lijek) -> Unit = { newLijek ->
         val lijekWithId = newLijek.copy(id = idCounter++)
         lijekovi.add(lijekWithId)
-        newlyAddedLijekId = lijekWithId.id
         saveData()
         showAddLijek = false
 
@@ -1864,7 +858,6 @@ fun PocetniEkran(context: Context? = null) {
 
             // Clear highlight after animation
             kotlinx.coroutines.delay(1000)
-            newlyAddedLijekId = null
         }
     }
 
@@ -2112,31 +1105,10 @@ fun PocetniEkran(context: Context? = null) {
                 "home" -> {
                     EnhancedHomeScreen(
                         lijekovi = lijekovi,
-                        newlyAddedLijekId = newlyAddedLijekId,
                         onEditLijek = { editLijek = it },
                         onDeleteLijek = handleDelete,
                         onRefillLijek = handleRefill,
                         onReorder = onReorder,
-                        onDoseTaken = { lijek, scheduledTime, actualTime ->
-                            // Handle interval therapy dose taking
-                            val index = lijekovi.indexOfFirst { it.id == lijek.id }
-                            if (index != -1 && lijek.intervalnoUzimanje != null) {
-                                val updatedInterval = lijek.intervalnoUzimanje.oznaciDozuUzeta(scheduledTime, actualTime)
-                                val updatedLijek = lijek.copy(
-                                    intervalnoUzimanje = updatedInterval,
-                                    trenutnoStanje = maxOf(0, lijek.trenutnoStanje - 1)
-                                )
-                                lijekovi[index] = updatedLijek
-                                saveData()
-
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        message = "Doza uzeta: ${lijek.naziv}",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            }
-                        },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -2182,7 +1154,6 @@ fun PocetniEkran(context: Context? = null) {
     if (showAddLijek) {
         LijekDialog(
             lijek = null,
-            existingLijekovi = lijekovi,
             onDismiss = { showAddLijek = false },
             onSave = { newLijek ->
                 val duplicate = lijekovi.any {
@@ -2207,7 +1178,6 @@ fun PocetniEkran(context: Context? = null) {
     editLijek?.let { lijek ->
         LijekDialog(
             lijek = lijek,
-            existingLijekovi = lijekovi.filter { it.id != lijek.id },
             onDismiss = { editLijek = null },
             onSave = { updatedLijek ->
                 val duplicate = lijekovi.any {
@@ -2247,12 +1217,10 @@ fun PocetniEkran(context: Context? = null) {
 @Composable
 fun EnhancedHomeScreen(
     lijekovi: List<Lijek>,
-    newlyAddedLijekId: Int?,
     onEditLijek: (Lijek) -> Unit,
     onDeleteLijek: (Lijek) -> Unit,
     onRefillLijek: (Lijek) -> Unit,
     onReorder: (DobaDana, Int, Int) -> Unit,
-    onDoseTaken: (Lijek, String, String?) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -2424,4 +1392,3 @@ fun AnimatedFAB(
         )
     }
 }
-

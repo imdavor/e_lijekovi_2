@@ -19,7 +19,7 @@
 ## Sljedeći koraci / planirane nadogradnje
 
 ### 1. Poboljšanja intervalnog doziranja
-- [ ] Fleksibilan unos početka terapije (datum + vrijeme)
+- [x] Fleksibilan unos početka terapije (datum + vrijeme)
 - [ ] Precizno računanje sljedeće doze kroz dane
 - [ ] Notifikacije za vrijeme uzimanja
 - [ ] Compliance tracking za intervalne lijekove (kasno uzimanje, preskočene doze)

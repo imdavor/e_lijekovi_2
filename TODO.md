@@ -39,3 +39,9 @@
 ## Napomene
 - Sve stare reference na React, AsyncStorage, web drag & drop i slične tehnologije su uklonjene.
 - Ovaj TODO se odnosi isključivo na Android aplikaciju e-Lijekovi.
+
+
+Ako želite, odmah mogu:
+Automatski ukloniti neiskorištene import-e i popraviti trivijalna upozorenja (mogu primijeniti izmjene i ponovno pokrenuti build), ili
+Dodati confirm dialog u EnhancedHomeScreen prije poziva onDeleteLijek.
+Reci koji od ta dva želite da odmah implementiram (ili ako je sve OK, mogu zatvoriti task).

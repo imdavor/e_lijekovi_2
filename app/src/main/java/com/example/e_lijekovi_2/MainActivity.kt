@@ -59,6 +59,11 @@ import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.lazy.LazyRow
 
 // Subtle elevation to use consistently for medicine cards
 private val subtleCardElevation = 4.dp
@@ -2109,6 +2114,7 @@ fun PocetniEkran(context: Context? = null) {
 }
 
 // Enhanced HomeScreen with new animated components
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnhancedHomeScreen(
     lijekovi: List<Lijek>,
@@ -2120,204 +2126,64 @@ fun EnhancedHomeScreen(
     onDoseTaken: (Lijek, String, String?) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
-    if (lijekovi.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+    var searchQuery by remember { mutableStateOf("") }
+    val kategorije = listOf("Svi", "Jutro", "Podne", "Večer", "Intervalno")
+    var selectedKategorija by remember { mutableStateOf("Svi") }
+
+    val filtriraniLijekovi = lijekovi.filter { lijek ->
+        (searchQuery.isBlank() || lijek.naziv.contains(searchQuery, ignoreCase = true)) &&
+        (selectedKategorija == "Svi" ||
+            (selectedKategorija == "Jutro" && lijek.jutro) ||
+            (selectedKategorija == "Podne" && lijek.popodne) ||
+            (selectedKategorija == "Večer" && lijek.vecer) ||
+            (selectedKategorija == "Intervalno" && lijek.tipUzimanja == TipUzimanja.INTERVALNO))
+    }
+
+    Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            label = { Text("Pretraži lijekove") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 8.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Default.LocalPharmacy,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    "Nemate dodane lijekove",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Pritisnite + za dodavanje novog lijeka",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            items(kategorije) { kategorija ->
+                FilterChip(
+                    selected = selectedKategorija == kategorija,
+                    onClick = { selectedKategorija = kategorija },
+                    label = { Text(kategorija) }
                 )
             }
         }
-    } else {
-        LazyColumn(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Group medicines by time periods (snapshot to avoid concurrent modification)
-            val jutarnjiLijekovi = lijekovi.filter { it.jutro && it.tipUzimanja == TipUzimanja.STANDARDNO }.sortedBy { it.sortOrderJutro }.toList()
-            val popodnevniLijekovi = lijekovi.filter { it.popodne && it.tipUzimanja == TipUzimanja.STANDARDNO }.sortedBy { it.sortOrderPopodne }.toList()
-            val vecernjiLijekovi = lijekovi.filter { it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }.sortedBy { it.sortOrderVecer }.toList()
-            val intervalniLijekovi = lijekovi.filter { it.tipUzimanja == TipUzimanja.INTERVALNO }.toList()
-            val nedefinirani = lijekovi.filter { !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja == TipUzimanja.STANDARDNO }.toList()
-
-            // ⚠️ UNDEFINED MEDICINES
-            if (nedefinirani.isNotEmpty()) {
-                item(key = "header_nedefinirani") {
-                    TimeGroupHeader(
-                        label = "Nedefiniran raspored",
-                        time = "Nije označeno",
-                        count = nedefinirani.size,
-                        emoji = "⚠️"
-                    )
-                }
-
-                items(nedefinirani, key = { it.id to "nedefinirani" }) { lijek ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically() + fadeIn(),
-                        exit = slideOutVertically() + fadeOut()
-                    ) {
-                        HighlightedLijekCard(
-                            lijek = lijek,
-                            isNew = lijek.id == newlyAddedLijekId,
-                            onEdit = { onEditLijek(lijek) },
-                            onDelete = { onDeleteLijek(lijek) },
-                            onRefill = { onRefillLijek(lijek) },
-                            onDeleteUndo = { /* Handled by parent */ }
-                        )
-                    }
-                }
-
-                item(key = "spacer_nedefinirani") { Spacer(modifier = Modifier.height(8.dp)) }
+        if (filtriraniLijekovi.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Nema lijekova za prikaz", style = MaterialTheme.typography.bodyLarge)
             }
-
-            // 🌞 MORNING GROUP
-            if (jutarnjiLijekovi.isNotEmpty()) {
-                item(key = "header_jutro") {
-                    TimeGroupHeader(
-                        label = "Jutro",
-                        time = "08:00",
-                        count = jutarnjiLijekovi.size,
-                        emoji = "🌞"
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(filtriraniLijekovi, key = { it.id }) { lijek ->
+                    HighlightedLijekCard(
+                        lijek = lijek,
+                        isNew = lijek.id == newlyAddedLijekId,
+                        onEdit = { onEditLijek(lijek) },
+                        onDelete = { onDeleteLijek(lijek) },
+                        onRefill = { onRefillLijek(lijek) },
+                        onDeleteUndo = { }
                     )
-                }
-
-                itemsIndexed(jutarnjiLijekovi, key = { _, lijek -> lijek.id to "jutro" }) { index, lijek ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            animationSpec = tween(300, delayMillis = index * 50)
-                        ) + fadeIn(),
-                        exit = slideOutVertically() + fadeOut()
-                    ) {
-                        HighlightedLijekCard(
-                            lijek = lijek,
-                            isNew = lijek.id == newlyAddedLijekId,
-                            onEdit = { onEditLijek(lijek) },
-                            onDelete = { onDeleteLijek(lijek) },
-                            onRefill = { onRefillLijek(lijek) },
-                            onDeleteUndo = { /* Handled by parent */ }
-                        )
-                    }
-                }
-
-                item(key = "spacer_jutro") { Spacer(modifier = Modifier.height(8.dp)) }
-            }
-
-            // 🌅 AFTERNOON GROUP
-            if (popodnevniLijekovi.isNotEmpty()) {
-                item(key = "header_podne") {
-                    TimeGroupHeader(
-                        label = "Podne",
-                        time = "14:00",
-                        count = popodnevniLijekovi.size,
-                        emoji = "🌅"
-                    )
-                }
-
-                itemsIndexed(popodnevniLijekovi, key = { _, lijek -> lijek.id to "podne" }) { index, lijek ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            animationSpec = tween(300, delayMillis = index * 50)
-                        ) + fadeIn(),
-                        exit = slideOutVertically() + fadeOut()
-                    ) {
-                        HighlightedLijekCard(
-                            lijek = lijek,
-                            isNew = lijek.id == newlyAddedLijekId,
-                            onEdit = { onEditLijek(lijek) },
-                            onDelete = { onDeleteLijek(lijek) },
-                            onRefill = { onRefillLijek(lijek) },
-                            onDeleteUndo = { /* Handled by parent */ }
-                        )
-                    }
-                }
-
-                item(key = "spacer_podne") { Spacer(modifier = Modifier.height(8.dp)) }
-            }
-
-            // 🌙 EVENING GROUP
-            if (vecernjiLijekovi.isNotEmpty()) {
-                item(key = "header_vecer") {
-                    TimeGroupHeader(
-                        label = "Večer",
-                        time = "20:00",
-                        count = vecernjiLijekovi.size,
-                        emoji = "🌙"
-                    )
-                }
-
-                itemsIndexed(vecernjiLijekovi, key = { _, lijek -> lijek.id to "vecer" }) { index, lijek ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            animationSpec = tween(300, delayMillis = index * 50)
-                        ) + fadeIn(),
-                        exit = slideOutVertically() + fadeOut()
-                    ) {
-                        HighlightedLijekCard(
-                            lijek = lijek,
-                            isNew = lijek.id == newlyAddedLijekId,
-                            onEdit = { onEditLijek(lijek) },
-                            onDelete = { onDeleteLijek(lijek) },
-                            onRefill = { onRefillLijek(lijek) },
-                            onDeleteUndo = { /* Handled by parent */ }
-                        )
-                    }
-                }
-
-                item(key = "spacer_vecer") { Spacer(modifier = Modifier.height(8.dp)) }
-            }
-
-            // ⏰ INTERVAL GROUP
-            if (intervalniLijekovi.isNotEmpty()) {
-                item(key = "header_intervalno") {
-                    TimeGroupHeader(
-                        label = "Intervalno",
-                        time = "Po rasporedu",
-                        count = intervalniLijekovi.size,
-                        emoji = "⏰"
-                    )
-                }
-
-                items(intervalniLijekovi, key = { it.id to "intervalno" }) { lijek ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically() + fadeIn(),
-                        exit = slideOutVertically() + fadeOut()
-                    ) {
-                        IntervalLijekCard(
-                            lijek = lijek,
-                            onEdit = { onEditLijek(lijek) },
-                            onDelete = { onDeleteLijek(lijek) },
-                            onDoseTaken = { scheduledTime, actualTime ->
-                                onDoseTaken(lijek, scheduledTime, actualTime)
-                            }
-                        )
-                    }
                 }
             }
         }

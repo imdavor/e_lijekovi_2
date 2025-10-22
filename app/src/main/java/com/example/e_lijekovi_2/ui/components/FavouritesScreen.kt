@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.foundation.background
 
 @Composable
 fun FavoritiLijekoviScreen(
@@ -91,18 +92,42 @@ fun LijekFavoritCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .height(120.dp)
-            .padding(4.dp),
+            .height(80.dp)
+            .padding(vertical = 4.dp),
         onClick = onDodaj,
         shape = RoundedCornerShape(8.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.Center
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(lijek.naziv, style = MaterialTheme.typography.titleMedium)
-            Text(lijek.doza, style = MaterialTheme.typography.bodyMedium)
-            // Dodaj još prikaza po potrebi
+            // Ovdje bi išla slika lijeka (ako postoji), za sada placeholder
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Img", style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                Text(lijek.doza, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+            }
+            if (!lijek.cijena.isNullOrBlank()) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = lijek.cijena!!,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

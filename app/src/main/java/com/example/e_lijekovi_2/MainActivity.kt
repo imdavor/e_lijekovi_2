@@ -2169,65 +2169,55 @@ fun EnhancedHomeScreen(
                 Text("Nema lijekova za prikaz", style = MaterialTheme.typography.bodyLarge)
             }
         } else {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(0.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(filtriraniLijekovi, key = { it.id }) { lijek ->
-                    HighlightedLijekCard(
-                        lijek = lijek,
-                        isNew = lijek.id == newlyAddedLijekId,
-                        onEdit = { onEditLijek(lijek) },
-                        onDelete = { onDeleteLijek(lijek) },
-                        onRefill = { onRefillLijek(lijek) },
-                        onDeleteUndo = { }
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(72.dp)
+                            .padding(horizontal = 12.dp)
+                            .clickable { onEditLijek(lijek) },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Slika ili placeholder
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Img", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                            Text(lijek.doza, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                        }
+                        if (!lijek.cijena.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = lijek.cijena!!,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = "Detalji",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Divider()
                 }
             }
         }
-    }
-}
-
-// Missing function: HighlightedLijekCard
-@Composable
-fun HighlightedLijekCard(
-    lijek: Lijek,
-    isNew: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onRefill: () -> Unit,
-    onDeleteUndo: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val animatedScale by animateFloatAsState(
-        targetValue = if (isNew) 1.05f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "new_card_scale"
-    )
-
-    val animatedAlpha by animateFloatAsState(
-        targetValue = if (isNew) 0.8f else 1.0f,
-        animationSpec = tween(1000),
-        label = "new_card_alpha"
-    )
-
-    Box(
-        modifier = modifier
-            .scale(animatedScale)
-            .graphicsLayer(alpha = animatedAlpha)
-    ) {
-        LijekCard(
-            lijek = lijek,
-            onEdit = onEdit,
-            onDelete = onDelete,
-            onRefill = onRefill,
-            modifier = Modifier.animateContentSize()
-        )
     }
 }
 

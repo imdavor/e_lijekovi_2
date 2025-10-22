@@ -243,6 +243,9 @@ data class Lijek(
     // Trenutno stanje - koliko tableta/doza trenutno imamo
     val trenutnoStanje: Int = 30, // Default jednako pakiranju
 
+    // Nova opcionalna cijena lijeka (npr. nadoplata)
+    val cijena: String? = null,
+
     // Za redoslijed prikaza unutar vremenske grupe
     val sortOrderJutro: Int = 0,
     val sortOrderPopodne: Int = 0,

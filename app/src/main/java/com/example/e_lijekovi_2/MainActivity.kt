@@ -2259,6 +2259,10 @@ fun EnhancedHomeScreen(
     val kategorije = listOf("Svi", "Jutro", "Podne", "Večer", "Intervalno")
     var selectedKategorija by remember { mutableStateOf("Svi") }
 
+    // Dodano za confirm dialog
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var lijekZaBrisanje by remember { mutableStateOf<Lijek?>(null) }
+
     val filtriraniLijekovi = lijekovi.filter { lijek ->
         (searchQuery.isBlank() || lijek.naziv.contains(searchQuery, ignoreCase = true)) &&
         (selectedKategorija == "Svi" ||
@@ -2340,7 +2344,10 @@ fun EnhancedHomeScreen(
 
                         // Restored delete button so user can remove a medicine from the list
                         IconButton(
-                            onClick = { onDeleteLijek(lijek) },
+                            onClick = {
+                                lijekZaBrisanje = lijek
+                                showDeleteDialog = true
+                            },
                             modifier = Modifier.size(40.dp)
                         ) {
                             Icon(
@@ -2360,6 +2367,32 @@ fun EnhancedHomeScreen(
                 }
             }
         }
+    }
+
+    // Confirm dialog
+    if (showDeleteDialog && lijekZaBrisanje != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Potvrda brisanja") },
+            text = { Text("Jeste li sigurni da želite obrisati lijek: ${lijekZaBrisanje?.naziv}?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    lijekZaBrisanje?.let { onDeleteLijek(it) }
+                    showDeleteDialog = false
+                    lijekZaBrisanje = null
+                }) {
+                    Text("Obriši")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    lijekZaBrisanje = null
+                }) {
+                    Text("Odustani")
+                }
+            }
+        )
     }
 }
 

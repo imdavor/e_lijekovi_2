@@ -7,10 +7,22 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.e_lijekovi_2.Lijek
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.runtime.remember
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
 
 @Composable
 fun FavoritiLijekoviScreen(
@@ -18,13 +30,35 @@ fun FavoritiLijekoviScreen(
     onDodaj: (Lijek) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var searchQuery by remember { mutableStateOf("") }
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            label = { Text("Pretraži favorite") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Obriši pretragu"
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            maxLines = 1
+        )
         Text(
             text = "Favoriti",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
-        if (lijekovi.isEmpty()) {
+        val filtriraniLijekovi = lijekovi.filter { it.naziv.contains(searchQuery, ignoreCase = true) }
+        if (filtriraniLijekovi.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
                 Text("Nema favorita.", style = MaterialTheme.typography.bodyLarge)
             }
@@ -35,7 +69,7 @@ fun FavoritiLijekoviScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(lijekovi) { lijek ->
+                items(filtriraniLijekovi) { lijek ->
                     LijekFavoritCard(
                         lijek = lijek,
                         onDodaj = { onDodaj(lijek) },
@@ -54,12 +88,13 @@ fun LijekFavoritCard(
     onDodaj: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.material3.Card(
+    Card(
         modifier = modifier
             .fillMaxWidth()
             .height(120.dp)
             .padding(4.dp),
-        onClick = onDodaj
+        onClick = onDodaj,
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),

@@ -315,7 +315,7 @@ fun LijekCard(
 
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "💊 Stanje: ${lijek.trenutnoStanje}/${lijek.pakiranje}",
+                                text = "💊 ${lijek.trenutnoStanje}/${lijek.pakiranje}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (isLowStock) Color(0xFFF9A825) else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium

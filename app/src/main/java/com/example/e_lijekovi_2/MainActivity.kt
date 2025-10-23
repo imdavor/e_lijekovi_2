@@ -109,6 +109,7 @@ fun LijekDialog(
     var vecer by remember { mutableStateOf(lijek?.vecer ?: false) }
     var pakiranje by remember { mutableStateOf(lijek?.pakiranje?.toString() ?: "30") }
     var trenutnoStanje by remember { mutableStateOf(lijek?.trenutnoStanje?.toString() ?: "30") }
+    var cijena by remember { mutableStateOf(lijek?.cijena ?: "") }
 
     var showIntervalDialog by remember { mutableStateOf(false) }
 
@@ -156,6 +157,13 @@ fun LijekDialog(
                         modifier = Modifier.weight(1f)
                     )
                 }
+                OutlinedTextField(
+                    value = cijena,
+                    onValueChange = { cijena = it },
+                    label = { Text("Cijena (opcionalno)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Text("Vrijeme uzimanja:", fontWeight = FontWeight.Medium)
 
@@ -294,13 +302,12 @@ fun LijekDialog(
                             id = lijek?.id ?: 0,
                             naziv = naziv.trim(),
                             doza = doza.trim(),
-                            napomene = lijek?.napomene ?: "", // Keep existing napomene or empty string
+                            napomene = lijek?.napomene ?: "",
                             jutro = jutro,
                             popodne = popodne,
                             vecer = vecer,
                             pakiranje = pakiranje.toIntOrNull() ?: 30,
                             trenutnoStanje = trenutnoStanje.toIntOrNull() ?: 30,
-                            // Kopiraj ostala postojeća polja ako uređujemo lijek
                             boja = lijek?.boja ?: "#4CAF50",
                             tipUzimanja = lijek?.tipUzimanja ?: TipUzimanja.STANDARDNO,
                             vrijemeJutro = lijek?.vrijemeJutro ?: "08:00",
@@ -309,7 +316,8 @@ fun LijekDialog(
                             intervalnoUzimanje = lijek?.intervalnoUzimanje,
                             sortOrderJutro = lijek?.sortOrderJutro ?: 0,
                             sortOrderPopodne = lijek?.sortOrderPopodne ?: 0,
-                            sortOrderVecer = lijek?.sortOrderVecer ?: 0
+                            sortOrderVecer = lijek?.sortOrderVecer ?: 0,
+                            cijena = cijena.ifBlank { null }
                         )
                         onSave(noviLijek)
                     }

@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.E_lijekovi_2" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ELijekovi2" parent="Theme.MaterialComponents.DayNight">
+        <!-- Dodaj ovdje zajedničke atribute za glavnu temu -->
+    </style>
+    <style name="Theme.ELijekovi2.Splash" parent="Theme.ELijekovi2">
+        <item name="android:windowBackground">@drawable/splash_screen</item>
+    </style>
 </resources>

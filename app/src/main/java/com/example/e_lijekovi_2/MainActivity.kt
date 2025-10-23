@@ -1241,13 +1241,17 @@ fun EnhancedHomeScreen(
     var dismissStateZaBrisanje by remember { mutableStateOf<DismissState?>(null) }
     var resetDismissStateFlag by remember { mutableStateOf(false) }
 
-    val filtriraniLijekovi = lijekovi.filter { lijek ->
-        (searchQuery.isBlank() || lijek.naziv.contains(searchQuery, ignoreCase = true)) &&
-        (selectedKategorija == "Svi" ||
-            (selectedKategorija == "Jutro" && lijek.jutro) ||
-            (selectedKategorija == "Podne" && lijek.popodne) ||
-            (selectedKategorija == "Večer" && lijek.vecer) ||
-            (selectedKategorija == "Intervalno" && lijek.tipUzimanja == TipUzimanja.INTERVALNO))
+    val filtriraniLijekovi by remember(lijekovi, searchQuery, selectedKategorija) {
+        derivedStateOf {
+            lijekovi.filter { lijek ->
+                (searchQuery.isBlank() || lijek.naziv.contains(searchQuery, ignoreCase = true)) &&
+                (selectedKategorija == "Svi" ||
+                    (selectedKategorija == "Jutro" && lijek.jutro) ||
+                    (selectedKategorija == "Podne" && lijek.popodne) ||
+                    (selectedKategorija == "Večer" && lijek.vecer) ||
+                    (selectedKategorija == "Intervalno" && lijek.tipUzimanja == TipUzimanja.INTERVALNO))
+            }
+        }
     }
 
     Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
@@ -1285,21 +1289,17 @@ fun EnhancedHomeScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(filtriraniLijekovi, key = { it.id }) { lijek ->
-                    var localShowDeleteDialog = showDeleteDialog
                     val dismissState = rememberDismissState(
                         confirmValueChange = { value ->
-                            if ((value == DismissValue.DismissedToStart || value == DismissValue.DismissedToEnd) && !localShowDeleteDialog) {
+                            if ((value == DismissValue.DismissedToStart || value == DismissValue.DismissedToEnd) && !showDeleteDialog) {
                                 lijekZaBrisanje = lijek
-                                localShowDeleteDialog = true
-                                // dismissStateZaBrisanje će biti postavljen izvan lambde
+                                showDeleteDialog = true
                             }
                             false
                         }
                     )
                     if ((dismissState.currentValue == DismissValue.DismissedToStart || dismissState.currentValue == DismissValue.DismissedToEnd) && !showDeleteDialog) {
                         dismissStateZaBrisanje = dismissState
-                        showDeleteDialog = true
-                        lijekZaBrisanje = lijek
                     }
                     SwipeToDismiss(
                         state = dismissState,
@@ -1356,7 +1356,7 @@ fun EnhancedHomeScreen(
                                 if (!lijek.cijena.isNullOrBlank()) {
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = lijek.cijena!!,
+                                        text = lijek.cijena,
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1

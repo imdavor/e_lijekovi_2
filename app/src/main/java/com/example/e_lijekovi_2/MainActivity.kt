@@ -1285,11 +1285,21 @@ fun EnhancedHomeScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(filtriraniLijekovi, key = { it.id }) { lijek ->
-                    val dismissState = rememberDismissState()
+                    var localShowDeleteDialog = showDeleteDialog
+                    val dismissState = rememberDismissState(
+                        confirmValueChange = { value ->
+                            if ((value == DismissValue.DismissedToStart || value == DismissValue.DismissedToEnd) && !localShowDeleteDialog) {
+                                lijekZaBrisanje = lijek
+                                localShowDeleteDialog = true
+                                // dismissStateZaBrisanje će biti postavljen izvan lambde
+                            }
+                            false
+                        }
+                    )
                     if ((dismissState.currentValue == DismissValue.DismissedToStart || dismissState.currentValue == DismissValue.DismissedToEnd) && !showDeleteDialog) {
-                        lijekZaBrisanje = lijek
-                        showDeleteDialog = true
                         dismissStateZaBrisanje = dismissState
+                        showDeleteDialog = true
+                        lijekZaBrisanje = lijek
                     }
                     SwipeToDismiss(
                         state = dismissState,
@@ -1392,6 +1402,7 @@ fun EnhancedHomeScreen(
                     showDeleteDialog = false
                     lijekZaBrisanje = null
                     dismissStateZaBrisanje = null
+                    resetDismissStateFlag = true // Dodano za sigurno resetiranje SwipeToDismiss
                 }) {
                     Text("Obriši")
                 }

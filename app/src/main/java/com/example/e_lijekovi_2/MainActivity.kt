@@ -1230,6 +1230,8 @@ fun EnhancedHomeScreen(
     // Dodano za confirm dialog
     var showDeleteDialog by remember { mutableStateOf(false) }
     var lijekZaBrisanje by remember { mutableStateOf<Lijek?>(null) }
+    var dismissStateZaBrisanje by remember { mutableStateOf<DismissState?>(null) }
+    var resetDismissStateFlag by remember { mutableStateOf(false) }
 
     val filtriraniLijekovi = lijekovi.filter { lijek ->
         (searchQuery.isBlank() || lijek.naziv.contains(searchQuery, ignoreCase = true)) &&
@@ -1275,72 +1277,105 @@ fun EnhancedHomeScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(filtriraniLijekovi, key = { it.id }) { lijek ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(72.dp)
-                            .padding(horizontal = 12.dp)
-                            .clickable { onEditLijek(lijek) },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Slika ili placeholder
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Img", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                            Text(lijek.doza, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                        }
-                        if (!lijek.cijena.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = lijek.cijena!!,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Restored delete button so user can remove a medicine from the list
-                        IconButton(
-                            onClick = {
-                                lijekZaBrisanje = lijek
-                                showDeleteDialog = true
-                            },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Obriši lijek",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowRight,
-                            contentDescription = "Detalji",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    val dismissState = rememberDismissState()
+                    if ((dismissState.currentValue == DismissValue.DismissedToStart || dismissState.currentValue == DismissValue.DismissedToEnd) && !showDeleteDialog) {
+                        lijekZaBrisanje = lijek
+                        showDeleteDialog = true
+                        dismissStateZaBrisanje = dismissState
                     }
-                    Divider()
+                    SwipeToDismiss(
+                        state = dismissState,
+                        directions = setOf(DismissDirection.EndToStart, DismissDirection.StartToEnd),
+                        background = {
+                            val color = when (dismissState.dismissDirection) {
+                                DismissDirection.StartToEnd, DismissDirection.EndToStart -> MaterialTheme.colorScheme.error
+                                null -> MaterialTheme.colorScheme.surface
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(color)
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Obriši lijek",
+                                    tint = MaterialTheme.colorScheme.onError
+                                )
+                            }
+                        },
+                        dismissContent = {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(72.dp)
+                                    .padding(horizontal = 12.dp)
+                                    .background(
+                                        color = if (lijek.trenutnoStanje < 7) Color(0xFFFFF59D) /* žuta */
+                                        else MaterialTheme.colorScheme.surface,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable { onEditLijek(lijek) },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Slika ili placeholder
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("Img", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                                    Text("${lijek.pakiranje}/${lijek.trenutnoStanje}", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                }
+                                if (!lijek.cijena.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = lijek.cijena!!,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = "Detalji",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    )
                 }
             }
+        }
+    }
+
+    // Side-effect za resetiranje dismissState
+    if (resetDismissStateFlag && dismissStateZaBrisanje != null) {
+        LaunchedEffect(dismissStateZaBrisanje) {
+            dismissStateZaBrisanje?.reset()
+            resetDismissStateFlag = false
+            dismissStateZaBrisanje = null
         }
     }
 
     // Confirm dialog
     if (showDeleteDialog && lijekZaBrisanje != null) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = {
+                showDeleteDialog = false
+                lijekZaBrisanje = null
+                resetDismissStateFlag = true
+            },
             title = { Text("Potvrda brisanja") },
             text = { Text("Jeste li sigurni da želite obrisati lijek: ${lijekZaBrisanje?.naziv}?") },
             confirmButton = {
@@ -1348,6 +1383,7 @@ fun EnhancedHomeScreen(
                     lijekZaBrisanje?.let { onDeleteLijek(it) }
                     showDeleteDialog = false
                     lijekZaBrisanje = null
+                    dismissStateZaBrisanje = null
                 }) {
                     Text("Obriši")
                 }
@@ -1356,6 +1392,7 @@ fun EnhancedHomeScreen(
                 TextButton(onClick = {
                     showDeleteDialog = false
                     lijekZaBrisanje = null
+                    resetDismissStateFlag = true
                 }) {
                     Text("Odustani")
                 }

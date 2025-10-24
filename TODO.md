@@ -28,7 +28,26 @@
 - [x] Fleksibilan unos početka terapije (datum + vrijeme)
 - [x] Automatsko računanje sljedeće doze kroz dane
 - [ ] Notifikacije za vrijeme uzimanja
-- [ ] Compliance tracking za intervalne lijekove (kasno uzimanje, preskođene doze)
+- [ ] Compliance tracking za intervalne lijekove (kasno uzimanje, preskočene doze)
+- [ ] **Aktivirati funkcije uzimanja lijekova i praćenje stanja (ručno označavanje doze, ažuriranje trenutnoStanje, compliance zapis, pojedinačno i grupno uzimanje) — bez prikaza vremena zadnjeg uzimanja jer boja kartice to vizualno pokazuje**
+
+### 1.1 Plan za funkcije uzimanja lijekova (pojedinačno i grupno)
+- Dodati gumb (npr. "✓ Uzmi" ili ikona čeka) na svaku karticu lijeka u listi.
+- Klikom na gumb:
+    - Smanjuje se trenutnoStanje za 1 (ili za dozu, ako je definirana).
+    - Za intervalne lijekove: zapisuje se compliance zapis (vrijeme, kasni li, preskočeno).
+    - Za standardne lijekove: označava se doza za to doba dana kao uzeta (jutro/podne/večer).
+    - Onemogućiti ponovno uzimanje za isti termin u istom danu (ili jasno vizualno prikazati da je već uzeto).
+- Na vrhu svake grupe (jutro/podne/večer) prikazati gumb "Uzmi sve".
+- Klikom na "Uzmi sve":
+    - Poziva se funkcija uzimanja za sve lijekove u toj grupi koji još nisu uzeti za taj termin.
+    - Svi relevantni lijekovi se ažuriraju (stanje, compliance, vizualno označavanje).
+- Nakon uzimanja (pojedinačno ili grupno), kartica se vizualno označava (npr. promjena boje, checkmark, animacija).
+- Onemogućiti uzimanje ako je trenutnoStanje 0 (prikaz upozorenja).
+- Onemogućiti dvostruko uzimanje za isti termin.
+- Prikazati poruku o uspjehu ili grešci (snackbar/toast).
+- Za svako uzimanje upisati compliance zapis (datum, vrijeme, kasni li, preskočeno).
+- Omogućiti kasnije prikaz statistike uzimanja.
 
 ### 2. Compliance i statistike
 - [ ] Tjedni/mjesečni pregled adherencije (kalendar s oznakama)

@@ -1367,8 +1367,29 @@ fun EnhancedHomeScreen(
                                     Column(
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                                            if (lijek.tipUzimanja == TipUzimanja.INTERVALNO && lijek.intervalnoUzimanje != null) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.Schedule,
+                                                    contentDescription = "Intervalni lijek",
+                                                    tint = MaterialTheme.colorScheme.secondary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
                                         Text("${lijek.pakiranje}/${lijek.trenutnoStanje}", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                        if (lijek.tipUzimanja == TipUzimanja.INTERVALNO && lijek.intervalnoUzimanje != null) {
+                                            val nextTime = calculateNextDose(lijek.intervalnoUzimanje)
+                                            if (nextTime != null) {
+                                                Text(
+                                                    text = "Sljedeće: $nextTime",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
+                                            }
+                                        }
                                     }
                                     if (!lijek.cijena.isNullOrBlank()) {
                                         Spacer(modifier = Modifier.width(8.dp))

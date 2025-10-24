@@ -8,12 +8,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,20 +23,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
+import com.example.e_lijekovi_2.ui.components.LijekCard
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 // Helper functions for interval therapy calculations
 private fun calculateRemainingDoses(interval: IntervalnoUzimanje): Int {
@@ -177,7 +175,7 @@ fun LijekDialog(
                         onClick = { jutro = !jutro },
                         modifier = Modifier.weight(1f),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (jutro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            containerColor = if (jutro) Color(0xFFF5F5F5) else Color(0xFFF5F5F5),
                             contentColor = if (jutro) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         elevation = CardDefaults.cardElevation(
@@ -201,7 +199,7 @@ fun LijekDialog(
                         onClick = { popodne = !popodne },
                         modifier = Modifier.weight(1f),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (popodne) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            containerColor = if (popodne) Color(0xFFF5F5F5) else Color(0xFFF5F5F5),
                             contentColor = if (popodne) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         elevation = CardDefaults.cardElevation(
@@ -225,7 +223,7 @@ fun LijekDialog(
                         onClick = { vecer = !vecer },
                         modifier = Modifier.weight(1f),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (vecer) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            containerColor = if (vecer) Color(0xFFF5F5F5) else Color(0xFFF5F5F5),
                             contentColor = if (vecer) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         elevation = CardDefaults.cardElevation(
@@ -281,7 +279,7 @@ fun LijekDialog(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.secondary
                                 )
-                                val interval = lijek.intervalnoUzimanje!!
+                                val interval = lijek.intervalnoUzimanje
                                 Text("📊 ${interval.ukupnoUzimanja} kom, svakih ${interval.intervalSati}h")
 
                                 val preostalo = calculateRemainingDoses(interval)
@@ -320,7 +318,7 @@ fun LijekDialog(
                             sortOrderJutro = lijek?.sortOrderJutro ?: 0,
                             sortOrderPopodne = lijek?.sortOrderPopodne ?: 0,
                             sortOrderVecer = lijek?.sortOrderVecer ?: 0,
-                            cijena = cijena.ifBlank { null }
+                            cijena = cijena.trim()
                         )
                         onSave(noviLijek)
                     }
@@ -367,7 +365,7 @@ fun IntervalnaTerapijaDialog(
 
     val todayCal = java.util.Calendar.getInstance()
     val initialDate = lijek.intervalnoUzimanje?.startDateTime?.takeIf { it.isNotBlank() }?.let {
-        try { dateTimeFormatter.parse(it) } catch (e: Exception) { null }
+        try { dateTimeFormatter.parse(it) } catch (_: Exception) { null }
     } ?: todayCal.time
 
     var pickedDate by remember { mutableStateOf(initialDate) }
@@ -801,65 +799,7 @@ fun PocetniEkran(context: Context? = null) {
         context?.let { ctx ->
             LijekoviDataManager.saveToLocalStorage(ctx, lijekovi)
         }
-    }
-
-    // onReorder function implementation moved inside PocetniEkran
-    val onReorder: (DobaDana, Int, Int) -> Unit = { grupa, fromId, toId ->
-        val index1 = lijekovi.indexOfFirst { it.id == fromId }
-        val index2 = lijekovi.indexOfFirst { it.id == toId }
-
-        if (index1 != -1 && index2 != -1) {
-            val lijek1 = lijekovi[index1]
-            val lijek2 = lijekovi[index2]
-
-            when (grupa) {
-                DobaDana.JUTRO -> {
-                    lijekovi[index1] = lijek1.copy(sortOrderJutro = lijek2.sortOrderJutro)
-                    lijekovi[index2] = lijek2.copy(sortOrderJutro = lijek1.sortOrderJutro)
-                }
-                DobaDana.POPODNE -> {
-                    lijekovi[index1] = lijek1.copy(sortOrderPopodne = lijek2.sortOrderPopodne)
-                    lijekovi[index2] = lijek2.copy(sortOrderPopodne = lijek1.sortOrderPopodne)
-                }
-                DobaDana.VECER -> {
-                    lijekovi[index1] = lijek1.copy(sortOrderVecer = lijek2.sortOrderVecer)
-                    lijekovi[index2] = lijek2.copy(sortOrderVecer = lijek1.sortOrderVecer)
-                }
-            }
-            saveData()
-        }
-    }
-
-    // Enhanced delete with undo functionality
-    val handleDelete: (Lijek) -> Unit = { lijek ->
-        recentlyDeletedLijek = lijek
-        val index = lijekovi.indexOfFirst { it.id == lijek.id }
-        if (index != -1) {
-            lijekovi.removeAt(index)
-            saveData()
-
-            scope.launch {
-                val result = snackbarHostState.showSnackbar(
-                    message = "Lijek '${lijek.naziv}' je obrisan",
-                    actionLabel = "Poništi",
-                    duration = SnackbarDuration.Long
-                )
-
-                if (result == SnackbarResult.ActionPerformed) {
-                    // Restore deleted medicine at the same position
-                    recentlyDeletedLijek?.let { deletedLijek ->
-                        val restoreIndex = if (index <= lijekovi.size) index else lijekovi.size
-                        lijekovi.add(restoreIndex, deletedLijek)
-                        saveData()
-                        snackbarHostState.showSnackbar(
-                            message = "Lijek '${deletedLijek.naziv}' je vraćen",
-                            duration = SnackbarDuration.Short
-                        )
-                    }
-                }
-                recentlyDeletedLijek = null
-            }
-        }
+        Unit
     }
 
     // Enhanced add with highlight animation
@@ -882,25 +822,6 @@ fun PocetniEkran(context: Context? = null) {
 
             // Clear highlight after animation
             kotlinx.coroutines.delay(1000)
-        }
-    }
-
-    // Enhanced refill with snackbar feedback
-    val handleRefill: (Lijek) -> Unit = { lijek ->
-        val index = lijekovi.indexOfFirst { it.id == lijek.id }
-        if (index != -1) {
-            val updatedLijek = lijekovi[index].copy(
-                trenutnoStanje = lijekovi[index].trenutnoStanje + lijekovi[index].pakiranje
-            )
-            lijekovi[index] = updatedLijek
-            saveData()
-
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = "Dodano ${lijek.pakiranje} kom za '${lijek.naziv}'",
-                    duration = SnackbarDuration.Short
-                )
-            }
         }
     }
 
@@ -1127,12 +1048,34 @@ fun PocetniEkran(context: Context? = null) {
         ) { paddingValues ->
             when (currentScreen) {
                 "home" -> {
-                    EnhancedHomeScreen(
+                    HomeScreen(
                         lijekovi = lijekovi,
-                        onEditLijek = { editLijek = it },
-                        onDeleteLijek = handleDelete,
-                        onRefillLijek = handleRefill,
-                        onReorder = onReorder,
+                        onTake = { lijek ->
+                            val grupa = when {
+                                lijek.jutro -> DobaDana.JUTRO
+                                lijek.popodne -> DobaDana.POPODNE
+                                lijek.vecer -> DobaDana.VECER
+                                else -> null
+                            }
+                            if (grupa != null && lijek.mozeUzeti(grupa)) {
+                                lijekovi[lijekovi.indexOf(lijek)] = lijek.uzmiLijek(grupa)
+                                saveData()
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        "Uspješno uzeto: ${lijek.naziv}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        "Nije moguće uzeti dozu za ${lijek.naziv}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            }
+                        },
+                        onEdit = { lijek -> editLijek = lijek },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -1239,233 +1182,6 @@ fun PocetniEkran(context: Context? = null) {
 // Enhanced HomeScreen with new animated components
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EnhancedHomeScreen(
-    lijekovi: List<Lijek>,
-    onEditLijek: (Lijek) -> Unit,
-    onDeleteLijek: (Lijek) -> Unit,
-    onRefillLijek: (Lijek) -> Unit,
-    onReorder: (DobaDana, Int, Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var searchQuery by remember { mutableStateOf("") }
-    val kategorije = listOf("Svi", "Jutro", "Podne", "Večer", "Intervalno")
-    var selectedKategorija by remember { mutableStateOf("Svi") }
-
-    // Dodano za confirm dialog
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var lijekZaBrisanje by remember { mutableStateOf<Lijek?>(null) }
-    var dismissStateZaBrisanje by remember { mutableStateOf<DismissState?>(null) }
-    var resetDismissStateFlag by remember { mutableStateOf(false) }
-
-    val filtriraniLijekovi by remember(lijekovi, searchQuery, selectedKategorija) {
-        derivedStateOf {
-            lijekovi.filter { lijek ->
-                (searchQuery.isBlank() || lijek.naziv.contains(searchQuery, ignoreCase = true)) &&
-                (selectedKategorija == "Svi" ||
-                    (selectedKategorija == "Jutro" && lijek.jutro) ||
-                    (selectedKategorija == "Podne" && lijek.popodne) ||
-                    (selectedKategorija == "Večer" && lijek.vecer) ||
-                    (selectedKategorija == "Intervalno" && lijek.tipUzimanja == TipUzimanja.INTERVALNO))
-            }
-        }
-    }
-
-    Column(modifier = modifier.fillMaxSize().padding(8.dp)) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            label = { Text("Pretraži lijekove") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(bottom = 8.dp)
-        ) {
-            items(kategorije) { kategorija ->
-                FilterChip(
-                    selected = selectedKategorija == kategorija,
-                    onClick = { selectedKategorija = kategorija },
-                    label = { Text(kategorija) }
-                )
-            }
-        }
-        if (filtriraniLijekovi.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Nema lijekova za prikaz", style = MaterialTheme.typography.bodyLarge)
-            }
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(0.dp), // Uklonjen razmak, koristimo Divider
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(filtriraniLijekovi, key = { it.id }) { lijek ->
-                    val dismissState = rememberDismissState(
-                        confirmValueChange = { value ->
-                            if ((value == DismissValue.DismissedToStart || value == DismissValue.DismissedToEnd) && !showDeleteDialog) {
-                                lijekZaBrisanje = lijek
-                                showDeleteDialog = true
-                            }
-                            false
-                        }
-                    )
-                    if ((dismissState.currentValue == DismissValue.DismissedToStart || dismissState.currentValue == DismissValue.DismissedToEnd) && !showDeleteDialog) {
-                        dismissStateZaBrisanje = dismissState
-                    }
-                    Column {
-                        SwipeToDismiss(
-                            state = dismissState,
-                            directions = setOf(DismissDirection.EndToStart, DismissDirection.StartToEnd),
-                            background = {
-                                val color = when (dismissState.dismissDirection) {
-                                    DismissDirection.StartToEnd, DismissDirection.EndToStart -> MaterialTheme.colorScheme.error
-                                    null -> MaterialTheme.colorScheme.surface
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(color)
-                                        .padding(horizontal = 20.dp),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Obriši lijek",
-                                        tint = MaterialTheme.colorScheme.onError
-                                    )
-                                }
-                            },
-                            dismissContent = {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(72.dp)
-                                        .padding(horizontal = 12.dp)
-                                        .background(
-                                            color = if (lijek.trenutnoStanje < 7) Color(0xFFFFF59D) /* žuta */
-                                            else MaterialTheme.colorScheme.surface,
-                                            shape = RoundedCornerShape(12.dp)
-                                        )
-                                        .clickable { onEditLijek(lijek) },
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Slika ili placeholder
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(lijek.naziv.take(2).uppercase(), style = MaterialTheme.typography.titleMedium)
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column(
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                                            if (lijek.tipUzimanja == TipUzimanja.INTERVALNO && lijek.intervalnoUzimanje != null) {
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Icon(
-                                                    imageVector = Icons.Default.Schedule,
-                                                    contentDescription = "Intervalni lijek",
-                                                    tint = MaterialTheme.colorScheme.secondary,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-                                        }
-                                        Text("${lijek.pakiranje}/${lijek.trenutnoStanje}", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                                        if (lijek.tipUzimanja == TipUzimanja.INTERVALNO && lijek.intervalnoUzimanje != null) {
-                                            val nextTime = calculateNextDose(lijek.intervalnoUzimanje)
-                                            if (nextTime != null) {
-                                                Text(
-                                                    text = "Sljedeće: $nextTime",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.secondary
-                                                )
-                                            }
-                                        }
-                                    }
-                                    if (!lijek.cijena.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = lijek.cijena,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            maxLines = 1
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowRight,
-                                        contentDescription = "Detalji",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        )
-                        Divider(
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                            thickness = 1.dp,
-                            modifier = Modifier.padding(start = 16.dp, end = 16.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    // Side-effect za resetiranje dismissState
-    if (resetDismissStateFlag && dismissStateZaBrisanje != null) {
-        LaunchedEffect(dismissStateZaBrisanje) {
-            dismissStateZaBrisanje?.reset()
-            resetDismissStateFlag = false
-            dismissStateZaBrisanje = null
-        }
-    }
-
-    // Confirm dialog
-    if (showDeleteDialog && lijekZaBrisanje != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showDeleteDialog = false
-                lijekZaBrisanje = null
-                resetDismissStateFlag = true
-            },
-            title = { Text("Potvrda brisanja") },
-            text = { Text("Jeste li sigurni da želite obrisati lijek: ${lijekZaBrisanje?.naziv}?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    lijekZaBrisanje?.let { onDeleteLijek(it) }
-                    showDeleteDialog = false
-                    lijekZaBrisanje = null
-                    dismissStateZaBrisanje = null
-                    resetDismissStateFlag = true // Dodano za sigurno resetiranje SwipeToDismiss
-                }) {
-                    Text("Obriši")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    lijekZaBrisanje = null
-                    resetDismissStateFlag = true
-                }) {
-                    Text("Odustani")
-                }
-            }
-        )
-    }
-}
-
-// Missing function: AnimatedFAB
-@Composable
 fun AnimatedFAB(
     isExpanded: Boolean,
     onClick: () -> Unit,
@@ -1490,5 +1206,29 @@ fun AnimatedFAB(
             contentDescription = "Dodaj lijek",
             modifier = Modifier.graphicsLayer(rotationZ = rotation)
         )
+    }
+}
+
+@Composable
+fun HomeScreen(
+    lijekovi: List<Lijek>,
+    onTake: (Lijek) -> Unit,
+    onEdit: (Lijek) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(lijekovi.size) { index ->
+            val lijek = lijekovi[index]
+            Box(modifier = Modifier.clickable { onEdit(lijek) }) {
+                LijekCard(
+                    lijek = lijek,
+                    onTake = { onTake(lijek) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }

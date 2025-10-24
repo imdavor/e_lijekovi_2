@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddShoppingCart
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 
 // Prilagođeni model proizvoda
 // Po potrebi proširi ili promijeni polja
@@ -49,7 +54,7 @@ fun ProductCard(
             .scale(scale),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(android.graphics.Color.parseColor(product.colorHex)))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
     ) {
         Column(
             modifier = Modifier
@@ -123,3 +128,104 @@ fun ProductCard(
     }
 }
 
+// REMOVE this data class Lijek, use the main model instead
+// import com.example.e_lijekovi_2.Lijek
+
+@Composable
+fun LijekCard(
+    lijek: com.example.e_lijekovi_2.Lijek,
+    onTake: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val mozeUzeti = lijek.mozeUzeti(null)
+    val jeUzet = lijek.jeUzetZaDanas()
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .wrapContentHeight(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Kvadratić sa slikom (ikonom)
+            Surface(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.6f), Color.Transparent))
+                    ),
+                tonalElevation = 2.dp,
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.MedicalServices,
+                        contentDescription = "Lijek ikona",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            // Tekstualni podaci i gumb
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (lijek.tipUzimanja == com.example.e_lijekovi_2.TipUzimanja.INTERVALNO) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Intervalni lijek",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                        )
+                    }
+                    Text(
+                        text = lijek.naziv,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2
+                    )
+                }
+                if (lijek.napomene.isNotBlank()) {
+                    Text(
+                        text = lijek.napomene,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Stanje lijevo
+                    Text(
+                        text = "${lijek.trenutnoStanje} od ${lijek.pakiranje}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // Gumb desno
+                    Button(
+                        onClick = onTake,
+                        enabled = mozeUzeti && !jeUzet,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE0E0E0),
+                            contentColor = Color.Black
+                        ),
+                        modifier = Modifier
+                    ) {
+                        Text("✓ Uzmi")
+                    }
+                }
+            }
+        }
+    }
+}

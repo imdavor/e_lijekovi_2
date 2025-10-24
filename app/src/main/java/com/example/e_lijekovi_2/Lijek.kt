@@ -44,9 +44,12 @@ data class IntervalnoUzimanje(
         private const val TIME_PATTERN = "HH:mm"
 
         // Helper funkcije koje kreiraju formatere kad god su potrebni
-        private fun createDateTimeFormat() = SimpleDateFormat(DATE_TIME_PATTERN, Locale.getDefault())
-        private fun createDateFormat() = SimpleDateFormat(DATE_PATTERN, Locale.getDefault())
-        private fun createTimeFormat() = SimpleDateFormat(TIME_PATTERN, Locale.getDefault())
+        @JvmStatic
+        fun createDateTimeFormat() = SimpleDateFormat(DATE_TIME_PATTERN, Locale.getDefault())
+        @JvmStatic
+        fun createDateFormat() = SimpleDateFormat(DATE_PATTERN, Locale.getDefault())
+        @JvmStatic
+        fun createTimeFormat() = SimpleDateFormat(TIME_PATTERN, Locale.getDefault())
     }
 
     // Dobij početno vrijeme kao Calendar
@@ -220,33 +223,22 @@ data class ComplianceStats(
 data class Lijek(
     val id: Int,
     val naziv: String,
-    val doza: String,
+    val doza: String = "",
+    val pakiranje: Int = 30,
+    var trenutnoStanje: Int = 30,
+    val cijena: String = "",
     val tipUzimanja: TipUzimanja = TipUzimanja.STANDARDNO,
-
-    // Za standardno uzimanje
+    val intervalnoUzimanje: IntervalnoUzimanje? = null,
+    val complianceHistory: List<UzimanjeRecord> = emptyList(),
     val jutro: Boolean = false,
     val popodne: Boolean = false,
     val vecer: Boolean = false,
     val vrijemeJutro: String = "08:00",
     val vrijemePopodne: String = "14:00",
     val vrijemeVecer: String = "20:00",
-
-    // Za intervalno uzimanje
-    val intervalnoUzimanje: IntervalnoUzimanje? = null,
-
+    val dozeZaDan: MutableMap<DobaDana, Boolean> = mutableMapOf(),
     val napomene: String = "",
-    val boja: String = "#4CAF50", // Default zelena boja
-
-    // Pakiranje - broj tableta/doza u jednom pakiranju
-    val pakiranje: Int = 30, // Default 30 tableta po pakiranju
-
-    // Trenutno stanje - koliko tableta/doza trenutno imamo
-    val trenutnoStanje: Int = 30, // Default jednako pakiranju
-
-    // Nova opcionalna cijena lijeka (npr. nadoplata)
-    val cijena: String? = null,
-
-    // Za redoslijed prikaza unutar vremenske grupe
+    val boja: String = "#4CAF50",
     val sortOrderJutro: Int = 0,
     val sortOrderPopodne: Int = 0,
     val sortOrderVecer: Int = 0
@@ -299,5 +291,41 @@ data class Lijek(
                 }
             }
         }
+    }
+
+    fun mozeUzeti(dobaDana: DobaDana?, vrijeme: String? = null, datum: String? = null): Boolean {
+        // Onemogući dvostruko uzimanje za isti termin
+        return when (tipUzimanja) {
+            TipUzimanja.STANDARDNO -> dobaDana != null && dozeZaDan[dobaDana] != true && trenutnoStanje > 0
+            TipUzimanja.INTERVALNO -> vrijeme != null && complianceHistory.none { it.scheduledTime == vrijeme && it.date == datum } && trenutnoStanje > 0
+        }
+    }
+
+    fun uzmiLijek(dobaDana: DobaDana?, vrijeme: String? = null, datum: String? = null, actualTime: String? = null): Lijek {
+        if (!mozeUzeti(dobaDana, vrijeme, datum)) return this
+        val novoStanje = (trenutnoStanje - 1).coerceAtLeast(0)
+        return when (tipUzimanja) {
+            TipUzimanja.STANDARDNO -> {
+                val noveDoze = dozeZaDan.toMutableMap()
+                if (dobaDana != null) noveDoze[dobaDana] = true
+                copy(trenutnoStanje = novoStanje, dozeZaDan = noveDoze)
+            }
+            TipUzimanja.INTERVALNO -> {
+                val now = actualTime ?: IntervalnoUzimanje.createTimeFormat().format(Date())
+                val today = datum ?: IntervalnoUzimanje.createDateFormat().format(Date())
+                val isLate = vrijeme != null && now > vrijeme
+                val noviRecord = UzimanjeRecord(
+                    scheduledTime = vrijeme ?: now,
+                    actualTime = now,
+                    isLate = isLate,
+                    date = today
+                )
+                copy(trenutnoStanje = novoStanje, complianceHistory = (complianceHistory + noviRecord).takeLast(90))
+            }
+        }
+    }
+
+    fun resetirajDozeZaDan() {
+        dozeZaDan.keys.forEach { dozeZaDan[it] = false }
     }
 }

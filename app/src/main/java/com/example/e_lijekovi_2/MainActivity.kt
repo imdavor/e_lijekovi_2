@@ -113,6 +113,7 @@ fun LijekDialog(
 
     var showIntervalDialog by remember { mutableStateOf(false) }
 
+    // KARTICA: Uredi lijek / Dodaj lijek
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (lijek == null) "Dodaj lijek" else "Uredi lijek") },
@@ -219,7 +220,7 @@ fun LijekDialog(
                         }
                     }
 
-                    // Toggle kocka za večer
+                    // Toggle kocka za večer (KARTICA VEČER)
                     Card(
                         onClick = { vecer = !vecer },
                         modifier = Modifier.weight(1f),
@@ -266,8 +267,10 @@ fun LijekDialog(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-                            )
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(
                                 modifier = Modifier.padding(16.dp)
@@ -374,165 +377,179 @@ fun IntervalnaTerapijaDialog(
     val prikazaniDatum = dateFormatter.format(pickedDate)
     val prikazanoVrijeme = timeFormatter.format(pickedDate)
 
+    // KARTICA: Intervalno uzimanje (dialog)
     AlertDialog(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "⏰ Intervalno uzimanje",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                "Postavite raspored za ${lijek.naziv}:",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = ukupnoKomada,
-                    onValueChange = { ukupnoKomada = it },
-                    label = { Text("Ukupno komada") },
-                    placeholder = { Text("12") },
-                    leadingIcon = { Text("📊") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "⏰ Intervalno uzimanje",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
                 )
 
-                OutlinedTextField(
-                    value = intervalSati,
-                    onValueChange = { intervalSati = it },
-                    label = { Text("Svakih (sati)") },
-                    placeholder = { Text("8") },
-                    leadingIcon = { Text("⏰") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = prikazaniDatum,
-                    onValueChange = {},
-                    label = { Text("Datum početka") },
-                    readOnly = true,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { showDatePicker = true }
+                Text(
+                    "Postavite raspored za ${lijek.naziv}:",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                OutlinedTextField(
-                    value = prikazanoVrijeme,
-                    onValueChange = {},
-                    label = { Text("Vrijeme početka") },
-                    readOnly = true,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { showTimePicker = true }
-                )
-            }
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        "📋 Pregled:",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = ukupnoKomada,
+                        onValueChange = { ukupnoKomada = it },
+                        label = { Text("Ukupno komada") },
+                        placeholder = { Text("12") },
+                        leadingIcon = { Text("📊") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
                     )
 
-                    val komada = ukupnoKomada.toIntOrNull() ?: 12
-                    val interval = intervalSati.toIntOrNull() ?: 8
-                    val trajanjeDana = (komada * interval) / 24.0
+                    OutlinedTextField(
+                        value = intervalSati,
+                        onValueChange = { intervalSati = it },
+                        label = { Text("Svakih (sati)") },
+                        placeholder = { Text("8") },
+                        leadingIcon = { Text("⏰") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
-                    Text("Početak: $prikazaniDatum $prikazanoVrijeme")
-                    Text("💊 Ukupno: $komada komada")
-                    Text("⏰ Interval: svaki $interval h")
-                    Text("📅 Trajanje: ${String.format("%.1f", trajanjeDana)} dana")
+                Spacer(modifier = Modifier.height(8.dp))
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = prikazaniDatum,
+                        onValueChange = {},
+                        label = { Text("Datum početka") },
+                        readOnly = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showDatePicker = true }
+                    )
 
-                    // Prikaži sljedećih nekoliko termina iz startnog vremena
-                    val limit = minOf(komada, 12)
-                    val upcoming = remember(pickedDate, interval) {
-                        val list = mutableListOf<String>()
-                        val cal = java.util.Calendar.getInstance()
-                        cal.time = pickedDate
-                        val formatter = java.text.SimpleDateFormat("dd-MM-yyyy HH:mm", java.util.Locale.getDefault())
-                        for (i in 0 until limit) {
-                            list.add(formatter.format(cal.time))
-                            cal.add(java.util.Calendar.HOUR_OF_DAY, interval)
+                    OutlinedTextField(
+                        value = prikazanoVrijeme,
+                        onValueChange = {},
+                        label = { Text("Vrijeme početka") },
+                        readOnly = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { showTimePicker = true }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // KARTICA: Intervalno uzimanje (pregled u dialogu)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant, // Ovdje se postavlja pozadina kartice
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "📋 Pregled:",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        val komada = ukupnoKomada.toIntOrNull() ?: 12
+                        val interval = intervalSati.toIntOrNull() ?: 8
+                        val trajanjeDana = (komada * interval) / 24.0
+
+                        Text("Početak: $prikazaniDatum $prikazanoVrijeme")
+                        Text("💊 Ukupno: $komada komada")
+                        Text("⏰ Interval: svaki $interval h")
+                        Text("📅 Trajanje: ${String.format("%.1f", trajanjeDana)} dana")
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Prikaži sljedećih nekoliko termina iz startnog vremena
+                        val limit = minOf(komada, 12)
+                        val upcoming = remember(pickedDate, interval) {
+                            val list = mutableListOf<String>()
+                            val cal = java.util.Calendar.getInstance()
+                            cal.time = pickedDate
+                            val formatter = java.text.SimpleDateFormat("dd-MM-yyyy HH:mm", java.util.Locale.getDefault())
+                            for (i in 0 until limit) {
+                                list.add(formatter.format(cal.time))
+                                cal.add(java.util.Calendar.HOUR_OF_DAY, interval)
+                            }
+                            list
                         }
-                        list
-                    }
 
-                    Text("📆 Nadolazeći termini:")
-                    Column {
-                        upcoming.forEach { dt ->
-                            Text("• $dt", style = MaterialTheme.typography.bodySmall)
+                        Text("📆 Nadolazeći termini:")
+                        Column {
+                            upcoming.forEach { dt ->
+                                Text("• $dt", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }
-            }
+                // === KRAJ KARTICE ZA PREGLED INTERVALNE TERAPIJE U DIALOGU ===
 
-            Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onDismiss) { Text("Odustani") }
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = {
-                    val ukupno = ukupnoKomada.toIntOrNull() ?: 12
-                    val interval = intervalSati.toIntOrNull() ?: 8
-                    val trajanje = (ukupno * interval / 24.0).toInt().coerceAtLeast(1)
-                    val startDateTime = dateTimeFormatter.format(pickedDate)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Odustani") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = {
+                        val ukupno = ukupnoKomada.toIntOrNull() ?: 12
+                        val interval = intervalSati.toIntOrNull() ?: 8
+                        val trajanje = (ukupno * interval / 24.0).toInt().coerceAtLeast(1)
+                        val startDateTime = dateTimeFormatter.format(pickedDate)
 
-                    val novaIntervalnaTerapija = IntervalnoUzimanje(
-                        intervalSati = interval,
-                        startDateTime = startDateTime,
-                        trajanjeDana = trajanje,
-                        complianceHistory = emptyList(),
-                        ukupnoUzimanja = ukupno
-                    )
+                        val novaIntervalnaTerapija = IntervalnoUzimanje(
+                            intervalSati = interval,
+                            startDateTime = startDateTime,
+                            trajanjeDana = trajanje,
+                            complianceHistory = emptyList(),
+                            ukupnoUzimanja = ukupno
+                        )
 
-                    val updatedLijek = lijek.copy(
-                        tipUzimanja = TipUzimanja.INTERVALNO,
-                        intervalnoUzimanje = novaIntervalnaTerapija,
-                        jutro = false,
-                        popodne = false,
-                        vecer = false
-                    )
+                        val updatedLijek = lijek.copy(
+                            tipUzimanja = TipUzimanja.INTERVALNO,
+                            intervalnoUzimanje = novaIntervalnaTerapija,
+                            jutro = false,
+                            popodne = false,
+                            vecer = false
+                        )
 
-                    onSave(updatedLijek)
-                }) {
-                    Text("Pokreni terapiju")
+                        onSave(updatedLijek)
+                    }) {
+                        Text("Pokreni terapiju")
+                    }
                 }
             }
         }
     }
 
-    // DatePicker dialog implemented via AndroidView inside AlertDialog
+    // DatePicker dialog implemented via AndroidView inside AlertDialog (ali izvan Card-a!)
     if (showDatePicker) {
         AlertDialog(
             onDismissRequest = { showDatePicker = false },
@@ -565,8 +582,7 @@ fun IntervalnaTerapijaDialog(
             }
         )
     }
-
-    // TimePicker dialog via AndroidView
+    // TimePicker dialog via AndroidView (izvan Card-a!)
     if (showTimePicker) {
         AlertDialog(
             onDismissRequest = { showTimePicker = false },

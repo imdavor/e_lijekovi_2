@@ -484,25 +484,27 @@ fun IntervalnaTerapijaDialog(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Prikaži sljedećih nekoliko termina iz startnog vremena
-                        val limit = minOf(komada, 12)
-                        val upcoming = remember(pickedDate, interval) {
-                            val list = mutableListOf<String>()
+                        // Prikaži samo jedan sljedeći termin unutar 24 sata, prema intervalu
+                        val nextTerm = remember(pickedDate, interval) {
                             val cal = java.util.Calendar.getInstance()
                             cal.time = pickedDate
-                            val formatter = java.text.SimpleDateFormat("dd-MM-yyyy HH:mm", java.util.Locale.getDefault())
-                            for (i in 0 until limit) {
-                                list.add(formatter.format(cal.time))
+                            val now = java.util.Calendar.getInstance()
+                            val formatter = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                            var result: String? = null
+                            for (i in 0 until komada) {
+                                val diff = cal.timeInMillis - now.timeInMillis
+                                if (diff >= 0 && diff < 24*60*60*1000) {
+                                    result = formatter.format(cal.time)
+                                    break
+                                }
                                 cal.add(java.util.Calendar.HOUR_OF_DAY, interval)
                             }
-                            list
+                            result
                         }
-
-                        Text("📆 Nadolazeći termini:")
-                        Column {
-                            upcoming.forEach { dt ->
-                                Text("• $dt", style = MaterialTheme.typography.bodySmall)
-                            }
+                        if (nextTerm != null) {
+                            Text("📆 Sljedeći termin: $nextTerm", style = MaterialTheme.typography.bodyMedium)
+                        } else {
+                            Text("Nema termina unutar 24h", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -510,12 +512,24 @@ fun IntervalnaTerapijaDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // Gumbi horizontalno, vizualno poboljšani
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Odustani") }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = onDismiss) {
+                        Text("Odustani", fontWeight = FontWeight.Medium)
+                    }
+                    TextButton(onClick = {
+                        val updatedLijek = lijek.copy(
+                            tipUzimanja = TipUzimanja.STANDARDNO,
+                            intervalnoUzimanje = null
+                        )
+                        onSave(updatedLijek)
+                        onDismiss()
+                    }) {
+                        Text("Isključi", fontWeight = FontWeight.Medium, color = Color.Red)
+                    }
                     Button(onClick = {
                         val ukupno = ukupnoKomada.toIntOrNull() ?: 12
                         val interval = intervalSati.toIntOrNull() ?: 8
@@ -539,8 +553,8 @@ fun IntervalnaTerapijaDialog(
                         )
 
                         onSave(updatedLijek)
-                    }) {
-                        Text("Pokreni terapiju")
+                    }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                        Text("Započni", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }

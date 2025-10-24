@@ -1301,7 +1301,7 @@ fun EnhancedHomeScreen(
             }
         } else {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp), // Uklonjen razmak, koristimo Divider
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(filtriraniLijekovi, key = { it.id }) { lijek ->
@@ -1317,77 +1317,84 @@ fun EnhancedHomeScreen(
                     if ((dismissState.currentValue == DismissValue.DismissedToStart || dismissState.currentValue == DismissValue.DismissedToEnd) && !showDeleteDialog) {
                         dismissStateZaBrisanje = dismissState
                     }
-                    SwipeToDismiss(
-                        state = dismissState,
-                        directions = setOf(DismissDirection.EndToStart, DismissDirection.StartToEnd),
-                        background = {
-                            val color = when (dismissState.dismissDirection) {
-                                DismissDirection.StartToEnd, DismissDirection.EndToStart -> MaterialTheme.colorScheme.error
-                                null -> MaterialTheme.colorScheme.surface
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(color)
-                                    .padding(horizontal = 20.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Obriši lijek",
-                                    tint = MaterialTheme.colorScheme.onError
-                                )
-                            }
-                        },
-                        dismissContent = {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(72.dp)
-                                    .padding(horizontal = 12.dp)
-                                    .background(
-                                        color = if (lijek.trenutnoStanje < 7) Color(0xFFFFF59D) /* žuta */
-                                        else MaterialTheme.colorScheme.surface,
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable { onEditLijek(lijek) },
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Slika ili placeholder
+                    Column {
+                        SwipeToDismiss(
+                            state = dismissState,
+                            directions = setOf(DismissDirection.EndToStart, DismissDirection.StartToEnd),
+                            background = {
+                                val color = when (dismissState.dismissDirection) {
+                                    DismissDirection.StartToEnd, DismissDirection.EndToStart -> MaterialTheme.colorScheme.error
+                                    null -> MaterialTheme.colorScheme.surface
+                                }
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
-                                    contentAlignment = Alignment.Center
+                                        .fillMaxSize()
+                                        .background(color)
+                                        .padding(horizontal = 20.dp),
+                                    contentAlignment = Alignment.CenterStart
                                 ) {
-                                    Text("Img", style = MaterialTheme.typography.bodySmall)
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                                    Text("${lijek.pakiranje}/${lijek.trenutnoStanje}", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                                }
-                                if (!lijek.cijena.isNullOrBlank()) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = lijek.cijena,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Obriši lijek",
+                                        tint = MaterialTheme.colorScheme.onError
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
+                            },
+                            dismissContent = {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(72.dp)
+                                        .padding(horizontal = 12.dp)
+                                        .background(
+                                            color = if (lijek.trenutnoStanje < 7) Color(0xFFFFF59D) /* žuta */
+                                            else MaterialTheme.colorScheme.surface,
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable { onEditLijek(lijek) },
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Slika ili placeholder
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(lijek.naziv.take(2).uppercase(), style = MaterialTheme.typography.titleMedium)
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(lijek.naziv, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                                        Text("${lijek.pakiranje}/${lijek.trenutnoStanje}", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                                    }
+                                    if (!lijek.cijena.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = lijek.cijena,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
 
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowRight,
-                                    contentDescription = "Detalji",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = "Detalji",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
-                        }
-                    )
+                        )
+                        Divider(
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp)
+                        )
+                    }
                 }
             }
         }

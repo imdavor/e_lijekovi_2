@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ELijekovi2" parent="Theme.MaterialComponents.DayNight">
+        <!-- Dark mode overrides -->
+    </style>
+</resources>

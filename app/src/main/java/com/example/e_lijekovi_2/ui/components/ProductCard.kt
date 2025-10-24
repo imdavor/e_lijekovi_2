@@ -54,7 +54,7 @@ fun ProductCard(
             .scale(scale),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -65,12 +65,10 @@ fun ProductCard(
                 modifier = Modifier
                     .height(110.dp)
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.6f), Color.Transparent))
-                    ),
+                    .clip(RoundedCornerShape(12.dp)),
                 tonalElevation = 2.dp,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
@@ -117,11 +115,14 @@ fun ProductCard(
                         added = true
                         onAdd()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(8.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.AddShoppingCart, contentDescription = null, tint = Color.White)
+                    Icon(imageVector = Icons.Default.AddShoppingCart, contentDescription = null)
                 }
             }
         }
@@ -146,7 +147,7 @@ fun LijekCard(
             .wrapContentHeight(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -156,12 +157,10 @@ fun LijekCard(
             Surface(
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.6f), Color.Transparent))
-                    ),
+                    .clip(RoundedCornerShape(10.dp)),
                 tonalElevation = 2.dp,
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -217,8 +216,8 @@ fun LijekCard(
                         onClick = onTake,
                         enabled = mozeUzeti && !jeUzet,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE0E0E0),
-                            contentColor = Color.Black
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         modifier = Modifier
                     ) {

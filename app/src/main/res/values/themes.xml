@@ -4,6 +4,10 @@
         <!-- Dodaj ovdje zajedničke atribute za glavnu temu -->
     </style>
     <style name="Theme.ELijekovi2.Splash" parent="Theme.ELijekovi2">
+        <!-- Android 12+ SplashScreen API -->
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:windowSplashScreenBackground">@color/white</item>
+        <!-- Fallback za starije verzije -->
         <item name="android:windowBackground">@drawable/splash_screen</item>
     </style>
 </resources>

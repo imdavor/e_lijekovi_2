@@ -170,75 +170,90 @@ fun LijekDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Toggle kocka za jutro
+                    // Jutro
                     Card(
                         onClick = { jutro = !jutro },
                         modifier = Modifier.weight(1f),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (jutro) Color(0xFFF5F5F5) else Color(0xFFF5F5F5),
-                            contentColor = if (jutro) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            containerColor = if (jutro) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color(0xFFE0E0E0),
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = if (jutro) 6.dp else 2.dp
-                        )
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Text("🌞", fontSize = 24.sp)
-                            Text("Jutro", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("🌞", fontSize = 28.sp)
+                            Text("Jutro", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text(
+                                if (jutro) "Uključeno" else "Isključeno",
+                                fontSize = 11.sp,
+                                fontWeight = if (jutro) FontWeight.Bold else FontWeight.Normal,
+                                color = if (jutro) MaterialTheme.colorScheme.primary else Color.Gray
+                            )
                         }
                     }
 
-                    // Toggle kocka za podne
+                    // Podne
                     Card(
                         onClick = { popodne = !popodne },
                         modifier = Modifier.weight(1f),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (popodne) Color(0xFFF5F5F5) else Color(0xFFF5F5F5),
-                            contentColor = if (popodne) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            containerColor = if (popodne) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color(0xFFE0E0E0),
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = if (popodne) 6.dp else 2.dp
-                        )
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Text("☀️", fontSize = 24.sp)
-                            Text("Podne", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("☀️", fontSize = 28.sp)
+                            Text("Podne", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text(
+                                if (popodne) "Uključeno" else "Isključeno",
+                                fontSize = 11.sp,
+                                fontWeight = if (popodne) FontWeight.Bold else FontWeight.Normal,
+                                color = if (popodne) MaterialTheme.colorScheme.primary else Color.Gray
+                            )
                         }
                     }
 
-                    // Toggle kocka za večer (KARTICA VEČER)
+                    // Večer
                     Card(
                         onClick = { vecer = !vecer },
                         modifier = Modifier.weight(1f),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (vecer) Color(0xFFF5F5F5) else Color(0xFFF5F5F5),
-                            contentColor = if (vecer) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            containerColor = if (vecer) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color(0xFFE0E0E0),
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = if (vecer) 6.dp else 2.dp
-                        )
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Text("🌙", fontSize = 24.sp)
-                            Text("Večer", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("🌙", fontSize = 28.sp)
+                            Text("Večer", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            Text(
+                                if (vecer) "Uključeno" else "Isključeno",
+                                fontSize = 11.sp,
+                                fontWeight = if (vecer) FontWeight.Bold else FontWeight.Normal,
+                                color = if (vecer) MaterialTheme.colorScheme.primary else Color.Gray
+                            )
                         }
                     }
                 }
@@ -704,16 +719,6 @@ fun SettingsScreen(
             Text("Upravljanje podacima")
         }
 
-        Button(
-            onClick = onTestImport,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary
-            )
-        ) {
-            Text("🔍 Test Import funkcionalnosti")
-        }
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -739,7 +744,7 @@ fun SettingsScreen(
                     "• Datoteka mora biti .json format\n" +
                     "• JSON mora biti array [ ... ]\n" +
                     "• Struktura mora odgovarati Lijek klasi\n" +
-                    "• Koristite 'Test Import' za provjeru",
+                    "• Koristite 'Export/Import' za provjeru",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

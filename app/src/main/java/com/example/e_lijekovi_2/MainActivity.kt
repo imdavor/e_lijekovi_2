@@ -1235,18 +1235,63 @@ fun HomeScreen(
     onEdit: (Lijek) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val grupe = listOf(
+        DobaDana.JUTRO to "Jutro",
+        DobaDana.POPODNE to "Podne",
+        DobaDana.VECER to "Večer"
+    )
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        items(lijekovi.size) { index ->
-            val lijek = lijekovi[index]
-            Box(modifier = Modifier.clickable { onEdit(lijek) }) {
-                LijekCard(
-                    lijek = lijek,
-                    onTake = { onTake(lijek) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+        grupe.forEach { (doba, naziv) ->
+            val grupaLijekova = lijekovi.filter {
+                when (doba) {
+                    DobaDana.JUTRO -> it.jutro
+                    DobaDana.POPODNE -> it.popodne
+                    DobaDana.VECER -> it.vecer
+                }
+            }
+            if (grupaLijekova.isNotEmpty()) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val ikona = when (doba) {
+                            DobaDana.JUTRO -> Icons.Default.WbSunny
+                            DobaDana.POPODNE -> Icons.Default.WbTwilight
+                            DobaDana.VECER -> Icons.Default.NightsStay
+                        }
+                        Icon(
+                            imageVector = ikona,
+                            contentDescription = naziv,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp).padding(end = 6.dp)
+                        )
+                        Text(
+                            text = naziv,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        // (Opcionalno) Gumb "Uzmi sve" za grupu
+                        /*Button(
+                            onClick = { grupaLijekova.forEach { onTake(it) } },
+                            enabled = grupaLijekova.any { it.mozeUzeti(doba) },
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("Uzmi sve", fontSize = 13.sp)
+                        }*/
+                    }
+                }
+                items(grupaLijekova.size) { idx ->
+                    val lijek = grupaLijekova[idx]
+                    Box(modifier = Modifier.clickable { onEdit(lijek) }) {
+                        LijekCard(
+                            lijek = lijek,
+                            onTake = { onTake(lijek) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
         }
     }

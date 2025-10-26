@@ -140,6 +140,14 @@ fun LijekCard(
 ) {
     val mozeUzeti = lijek.mozeUzeti(null)
     val jeUzet = lijek.jeUzetZaDanas()
+    val zadnjeUzimanje = lijek.complianceHistory.lastOrNull { it.actualTime != null }
+    val zadnjeUzimanjeTekst = zadnjeUzimanje?.let { "Zadnje: ${it.date} u ${it.actualTime}" } ?: "Nema podataka"
+    // Ispravno dohvaćanje compliance statistike za intervalne lijekove
+    val complianceStats = when (lijek.tipUzimanja) {
+        com.example.e_lijekovi_2.TipUzimanja.INTERVALNO -> lijek.intervalnoUzimanje?.getComplianceStats(7)
+        else -> null
+    }
+    val complianceText = complianceStats?.let { "Uzimanje: ${it.complianceRate.toInt()}% u zadnjih 7 dana" } ?: ""
 
     Card(
         modifier = modifier
@@ -194,6 +202,19 @@ fun LijekCard(
                 if (lijek.napomene.isNotBlank()) {
                     Text(
                         text = lijek.napomene,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = zadnjeUzimanjeTekst,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (complianceText.isNotBlank()) {
+                    Text(
+                        text = complianceText,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

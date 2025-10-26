@@ -953,6 +953,18 @@ fun PocetniEkran(context: Context? = null) {
                     ) {
                         Text("Importaj podatke")
                     }
+                    Button(
+                        onClick = {
+                            lijekovi.clear()
+                            saveData()
+                            showExportImportDialog = false
+                            showMessage = "Svi podaci su uspješno obrisani!"
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("Obriši sve podatke", color = Color.White)
+                    }
                 }
             },
             dismissButton = {
@@ -1240,6 +1252,7 @@ fun HomeScreen(
         DobaDana.POPODNE to "Podne",
         DobaDana.VECER to "Večer"
     )
+    val skipSnackbarOnTakeAll = remember { mutableStateOf(false) }
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -1254,7 +1267,12 @@ fun HomeScreen(
             }
             if (grupaLijekova.isNotEmpty()) {
                 item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp)
+                    ) {
                         val ikona = when (doba) {
                             DobaDana.JUTRO -> Icons.Default.WbSunny
                             DobaDana.POPODNE -> Icons.Default.WbTwilight
@@ -1264,22 +1282,31 @@ fun HomeScreen(
                             imageVector = ikona,
                             contentDescription = naziv,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp).padding(end = 6.dp)
+                            modifier = Modifier.size(28.dp).padding(end = 10.dp)
                         )
                         Text(
                             text = naziv,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 12.dp)
                         )
                         Spacer(modifier = Modifier.weight(1f))
-                        // (Opcionalno) Gumb "Uzmi sve" za grupu
-                        /*Button(
-                            onClick = { grupaLijekova.forEach { onTake(it) } },
-                            enabled = grupaLijekova.any { it.mozeUzeti(doba) },
-                            modifier = Modifier.height(28.dp)
+                        val mozeUzetiNetko = grupaLijekova.any { it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0 }
+                        Button(
+                            onClick = {
+                                skipSnackbarOnTakeAll.value = true
+                                grupaLijekova.forEach {
+                                    if (it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0) onTake(it)
+                                }
+                                skipSnackbarOnTakeAll.value = false
+                            },
+                            enabled = mozeUzetiNetko,
+                            modifier = Modifier
+                                .height(38.dp)
+                                .padding(vertical = 2.dp)
                         ) {
-                            Text("Uzmi sve", fontSize = 13.sp)
-                        }*/
+                            Text("Uzmi sve", fontSize = 15.sp)
+                        }
                     }
                 }
                 items(grupaLijekova.size) { idx ->
@@ -1287,10 +1314,90 @@ fun HomeScreen(
                     Box(modifier = Modifier.clickable { onEdit(lijek) }) {
                         LijekCard(
                             lijek = lijek,
-                            onTake = { onTake(lijek) },
+                            onTake = {
+                                if (!skipSnackbarOnTakeAll.value) onTake(lijek)
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+                }
+            }
+        }
+        // Dodaj "Intervalno" grupu za intervalne lijekove
+        val intervalniLijekovi = lijekovi.filter {
+            it.tipUzimanja == TipUzimanja.INTERVALNO
+        }
+        if (intervalniLijekovi.isNotEmpty()) {
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = "Intervalno",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp).padding(end = 10.dp)
+                    )
+                    Text(
+                        text = "Intervalno",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                }
+            }
+            items(intervalniLijekovi.size) { idx ->
+                val lijek = intervalniLijekovi[idx]
+                Box(modifier = Modifier.clickable { onEdit(lijek) }) {
+                    LijekCard(
+                        lijek = lijek,
+                        onTake = {
+                            if (!skipSnackbarOnTakeAll.value) onTake(lijek)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        // Dodaj "Ostali" grupu za lijekove bez termina i koji nisu intervalni
+        val ostaliLijekovi = lijekovi.filter {
+            !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja != TipUzimanja.INTERVALNO
+        }
+        if (ostaliLijekovi.isNotEmpty()) {
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MedicalServices,
+                        contentDescription = "Ostali",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp).padding(end = 10.dp)
+                    )
+                    Text(
+                        text = "Ostali",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                }
+            }
+            items(ostaliLijekovi.size) { idx ->
+                val lijek = ostaliLijekovi[idx]
+                Box(modifier = Modifier.clickable { onEdit(lijek) }) {
+                    LijekCard(
+                        lijek = lijek,
+                        onTake = {
+                            if (!skipSnackbarOnTakeAll.value) onTake(lijek)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

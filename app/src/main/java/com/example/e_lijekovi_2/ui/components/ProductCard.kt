@@ -182,7 +182,10 @@ fun LijekCard(
             Spacer(modifier = Modifier.width(14.dp))
             // Tekstualni podaci i gumb
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (lijek.tipUzimanja == com.example.e_lijekovi_2.TipUzimanja.INTERVALNO) {
                         Icon(
                             imageVector = Icons.Default.Schedule,
@@ -196,8 +199,24 @@ fun LijekCard(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2
+                        maxLines = 2,
+                        modifier = Modifier.weight(1f)
                     )
+                    if (!lijek.cijena.isNullOrBlank()) {
+                        val cijenaFormatted = try {
+                            lijek.cijena.replace(',', '.').toFloat().let { String.format("%.2f €", it) }
+                        } catch (_: Exception) {
+                            lijek.cijena + " €"
+                        }
+                        Text(
+                            text = cijenaFormatted.replace('.', ','),
+                            fontSize = 20.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            modifier = Modifier
+                        )
+                    }
                 }
                 if (lijek.napomene.isNotBlank()) {
                     Text(
@@ -206,6 +225,7 @@ fun LijekCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = zadnjeUzimanjeTekst,

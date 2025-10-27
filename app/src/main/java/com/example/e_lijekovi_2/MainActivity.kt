@@ -5,8 +5,8 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -25,9 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import com.example.e_lijekovi_2.ui.components.LijekCard
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 // Helper functions for interval therapy calculations
@@ -98,7 +95,8 @@ class MainActivity : ComponentActivity() {
 fun LijekDialog(
     lijek: Lijek?,
     onDismiss: () -> Unit,
-    onSave: (Lijek) -> Unit
+    onSave: (Lijek) -> Unit,
+    onDelete: (Lijek) -> Unit
 ) {
     var naziv by remember { mutableStateOf(lijek?.naziv ?: "") }
     var doza by remember { mutableStateOf(lijek?.doza ?: "") }
@@ -110,6 +108,7 @@ fun LijekDialog(
     var cijena by remember { mutableStateOf(lijek?.cijena ?: "") }
 
     var showIntervalDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     // KARTICA: Uredi lijek / Dodaj lijek
     AlertDialog(
@@ -343,11 +342,42 @@ fun LijekDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Odustani")
+            Row {
+                TextButton(onClick = onDismiss) {
+                    Text("Odustani")
+                }
+                if (lijek != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = { showDeleteConfirm = true }) {
+                        Text("Obriši", color = Color.Red)
+                    }
+                }
             }
         }
     )
+
+    // Delete confirmation dialog (shown when user taps delete)
+    if (showDeleteConfirm && lijek != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Potvrda brisanja") },
+            text = { Text("Jeste li sigurni da želite obrisati lijek '${lijek.naziv}'? Ova radnja se ne može poništiti.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(lijek)
+                    showDeleteConfirm = false
+                    onDismiss()
+                }) {
+                    Text("Obriši", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Odustani")
+                }
+            }
+        )
+    }
 
     // Dialog za intervalnu terapiju
     if (showIntervalDialog && lijek != null) {
@@ -506,11 +536,11 @@ fun IntervalnaTerapijaDialog(
                             val now = java.util.Calendar.getInstance()
                             val formatter = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
                             var result: String? = null
-                            for (i in 0 until komada) {
+                            repeat(komada) {
                                 val diff = cal.timeInMillis - now.timeInMillis
                                 if (diff >= 0 && diff < 24*60*60*1000) {
                                     result = formatter.format(cal.time)
-                                    break
+                                    return@repeat
                                 }
                                 cal.add(java.util.Calendar.HOUR_OF_DAY, interval)
                             }
@@ -697,7 +727,6 @@ fun StatisticsScreen(
 @Composable
 fun SettingsScreen(
     onExportImport: () -> Unit,
-    onTestImport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -809,7 +838,6 @@ fun PocetniEkran(context: Context? = null) {
     var showExportImportDialog by remember { mutableStateOf(false) }
     var showMessage by remember { mutableStateOf<String?>(null) }
     var currentScreen by remember { mutableStateOf("home") }
-    var recentlyDeletedLijek by remember { mutableStateOf<Lijek?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -1119,26 +1147,6 @@ fun PocetniEkran(context: Context? = null) {
                 "settings" -> {
                     SettingsScreen(
                         onExportImport = { showExportImportDialog = true },
-                        onTestImport = {
-                            // Test import funkcionalnosti
-                            context?.let { ctx ->
-                                val testUri = android.net.Uri.parse("android.resource://${ctx.packageName}/raw/test_lijekovi.json")
-                                try {
-                                    val importedLijekovi = LijekoviDataManager.loadFromFile(ctx, testUri)
-                                    if (importedLijekovi != null) {
-                                        lijekovi.clear()
-                                        lijekovi.addAll(importedLijekovi)
-                                        idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
-                                        saveData()
-                                        showMessage = "✅ Test podaci uspješno importirani!\n\nUčitano ${importedLijekovi.size} lijekova."
-                                    } else {
-                                        showMessage = "❌ Greška pri učitavanju test podataka!"
-                                    }
-                                } catch (e: Exception) {
-                                    showMessage = "❌ Neočekivana greška: ${e.message}"
-                                }
-                            }
-                        },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -1154,52 +1162,68 @@ fun PocetniEkran(context: Context? = null) {
             lijek = null,
             onDismiss = { showAddLijek = false },
             onSave = { newLijek ->
-                val duplicate = lijekovi.any {
-                    it.naziv.lowercase() == newLijek.naziv.lowercase()
-                }
+                 val duplicate = lijekovi.any {
+                     it.naziv.lowercase() == newLijek.naziv.lowercase()
+                 }
 
-                if (duplicate) {
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = "Lijek '${newLijek.naziv}' već postoji!",
-                            duration = SnackbarDuration.Short
-                        )
-                    }
-                    return@LijekDialog
-                }
+                 if (duplicate) {
+                     scope.launch {
+                         snackbarHostState.showSnackbar(
+                             message = "Lijek '${newLijek.naziv}' već postoji!",
+                             duration = SnackbarDuration.Short
+                         )
+                     }
+                     return@LijekDialog
+                 }
 
-                handleAddLijek(newLijek)
-            }
+                 handleAddLijek(newLijek)
+             }
+            , onDelete = { /* no-op for add dialog */ }
         )
-    }
+     }
 
-    editLijek?.let { lijek ->
-        LijekDialog(
-            lijek = lijek,
-            onDismiss = { editLijek = null },
-            onSave = { updatedLijek ->
-                val duplicate = lijekovi.any {
-                    it.id != lijek.id && it.naziv.lowercase() == updatedLijek.naziv.lowercase()
-                }
+     editLijek?.let { lijek ->
+         LijekDialog(
+             lijek = lijek,
+             onDismiss = { editLijek = null },
+             onSave = { updatedLijek ->
+                 val duplicate = lijekovi.any {
+                     it.id != lijek.id && it.naziv.lowercase() == updatedLijek.naziv.lowercase()
+                 }
 
-                if (duplicate) {
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = "Lijek '${updatedLijek.naziv}' već postoji!",
-                            duration = SnackbarDuration.Short
-                        )
-                    }
-                    return@LijekDialog
-                }
+                 if (duplicate) {
+                     scope.launch {
+                         snackbarHostState.showSnackbar(
+                             message = "Lijek '${updatedLijek.naziv}' već postoji!",
+                             duration = SnackbarDuration.Short
+                         )
+                     }
+                     return@LijekDialog
+                 }
 
-                val index = lijekovi.indexOfFirst { it.id == lijek.id }
-                if (index != -1) {
-                    lijekovi[index] = updatedLijek
+                 val index = lijekovi.indexOfFirst { it.id == lijek.id }
+                 if (index != -1) {
+                     lijekovi[index] = updatedLijek
+                     saveData()
+
+                     scope.launch {
+                         snackbarHostState.showSnackbar(
+                             message = "Lijek '${updatedLijek.naziv}' ažuriran",
+                             duration = SnackbarDuration.Short
+                         )
+                     }
+                 }
+                 editLijek = null
+             }
+            , onDelete = { deletedLijek ->
+                val idx = lijekovi.indexOfFirst { it.id == deletedLijek.id }
+                if (idx != -1) {
+                    val nazivBrisanog = lijekovi[idx].naziv
+                    lijekovi.removeAt(idx)
                     saveData()
-
                     scope.launch {
                         snackbarHostState.showSnackbar(
-                            message = "Lijek '${updatedLijek.naziv}' ažuriran",
+                            message = "Lijek '$nazivBrisanog' obrisan",
                             duration = SnackbarDuration.Short
                         )
                     }
@@ -1207,7 +1231,7 @@ fun PocetniEkran(context: Context? = null) {
                 editLijek = null
             }
         )
-    }
+     }
 }
 
 // Enhanced HomeScreen with new animated components
@@ -1245,7 +1269,8 @@ fun HomeScreen(
     lijekovi: List<Lijek>,
     onTake: (Lijek) -> Unit,
     onEdit: (Lijek) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scaffoldPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val grupe = listOf(
         DobaDana.JUTRO to "Jutro",
@@ -1254,8 +1279,15 @@ fun HomeScreen(
     )
     val skipSnackbarOnTakeAll = remember { mutableStateOf(false) }
     LazyColumn(
-        modifier = modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+        contentPadding = PaddingValues(
+            bottom = scaffoldPadding.calculateBottomPadding()
+                + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                + 16.dp // internal margin
+        )
     ) {
         grupe.forEach { (doba, naziv) ->
             val grupaLijekova = lijekovi.filter {
@@ -1317,7 +1349,9 @@ fun HomeScreen(
                             onTake = {
                                 if (!skipSnackbarOnTakeAll.value) onTake(lijek)
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(if (idx == grupaLijekova.lastIndex) Modifier.padding(bottom = 16.dp) else Modifier)
                         )
                     }
                 }

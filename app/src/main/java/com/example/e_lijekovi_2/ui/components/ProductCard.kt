@@ -152,10 +152,12 @@ fun LijekCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .wrapContentHeight(),
+            .wrapContentHeight(), // Uklonjen padding na dnu, padding treba dodati samo zadnjoj kartici u prikazu liste
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(
+            containerColor = if (lijek.trenutnoStanje <= 7) Color(0xFFFFF59D) else MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier.padding(12.dp),

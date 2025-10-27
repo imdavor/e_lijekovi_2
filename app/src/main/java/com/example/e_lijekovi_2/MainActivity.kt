@@ -1254,10 +1254,7 @@ fun HomeScreen(
     )
     val skipSnackbarOnTakeAll = remember { mutableStateOf(false) }
     LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .padding(bottom = 16.dp), // Dodan padding na dnu LazyColumn-a
+        modifier = modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         grupe.forEach { (doba, naziv) ->
@@ -1320,9 +1317,7 @@ fun HomeScreen(
                             onTake = {
                                 if (!skipSnackbarOnTakeAll.value) onTake(lijek)
                             },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .then(if (idx == grupaLijekova.lastIndex) Modifier.padding(bottom = 16.dp) else Modifier)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -1405,10 +1400,6 @@ fun HomeScreen(
                     )
                 }
             }
-        }
-        // Extra spacer at the end so last card isn't flush with the screen bottom (handles gesture nav / FAB)
-        item {
-            Spacer(modifier = Modifier.height(96.dp))
         }
     }
 }

@@ -25,9 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import com.example.e_lijekovi_2.ui.components.LijekCard
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 // Helper functions for interval therapy calculations
@@ -697,7 +694,6 @@ fun StatisticsScreen(
 @Composable
 fun SettingsScreen(
     onExportImport: () -> Unit,
-    onTestImport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -809,7 +805,6 @@ fun PocetniEkran(context: Context? = null) {
     var showExportImportDialog by remember { mutableStateOf(false) }
     var showMessage by remember { mutableStateOf<String?>(null) }
     var currentScreen by remember { mutableStateOf("home") }
-    var recentlyDeletedLijek by remember { mutableStateOf<Lijek?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -1119,26 +1114,6 @@ fun PocetniEkran(context: Context? = null) {
                 "settings" -> {
                     SettingsScreen(
                         onExportImport = { showExportImportDialog = true },
-                        onTestImport = {
-                            // Test import funkcionalnosti
-                            context?.let { ctx ->
-                                val testUri = android.net.Uri.parse("android.resource://${ctx.packageName}/raw/test_lijekovi.json")
-                                try {
-                                    val importedLijekovi = LijekoviDataManager.loadFromFile(ctx, testUri)
-                                    if (importedLijekovi != null) {
-                                        lijekovi.clear()
-                                        lijekovi.addAll(importedLijekovi)
-                                        idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
-                                        saveData()
-                                        showMessage = "✅ Test podaci uspješno importirani!\n\nUčitano ${importedLijekovi.size} lijekova."
-                                    } else {
-                                        showMessage = "❌ Greška pri učitavanju test podataka!"
-                                    }
-                                } catch (e: Exception) {
-                                    showMessage = "❌ Neočekivana greška: ${e.message}"
-                                }
-                            }
-                        },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -1400,6 +1375,10 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+        // Dodaj padding na dnu liste kako zadnja kartica ne bi bila uz rub
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

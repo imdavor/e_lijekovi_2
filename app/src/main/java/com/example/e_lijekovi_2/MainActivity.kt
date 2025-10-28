@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalContext
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import com.example.e_lijekovi_2.ui.components.LijekCard
 import kotlinx.coroutines.launch
@@ -729,6 +730,18 @@ fun SettingsScreen(
     onExportImport: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
+    // Load saved reminder times from SharedPreferences (format HH:mm)
+    val prefs = remember { context.getSharedPreferences("e_lijekovi_prefs", Context.MODE_PRIVATE) }
+    var jutroTime by remember { mutableStateOf(prefs.getString("reminder_jutro", "08:00") ?: "08:00") }
+    var podneTime by remember { mutableStateOf(prefs.getString("reminder_podne", "14:00") ?: "14:00") }
+    var vecerTime by remember { mutableStateOf(prefs.getString("reminder_vecer", "20:00") ?: "20:00") }
+
+    var showTimePickerJutro by remember { mutableStateOf(false) }
+    var showTimePickerPodne by remember { mutableStateOf(false) }
+    var showTimePickerVecer by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -738,7 +751,7 @@ fun SettingsScreen(
         Text(
             "Postavke",
             style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 8.dp)
         )
 
         Button(
@@ -778,53 +791,150 @@ fun SettingsScreen(
                 )
             }
         }
-    }
-}
 
-@Composable
-fun AboutScreen(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            "O aplikaciji",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
+        // Podsjetnici card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .shadow(
-                    elevation = 2.dp,
+                    elevation = 1.dp,
                     shape = RoundedCornerShape(12.dp),
-                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
                 )
                 .clip(RoundedCornerShape(12.dp)),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    "e-LijekoviHR",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Text("Verzija: 1.0")
-                Text("Hrvatska aplikacija za praćenje lijekova")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Značajke:")
-                Text("• Praćenje standardnih lijekova")
-                Text("• Napredni intervalni doziranje")
-                Text("• Compliance statistike")
-                Text("• Export/Import podataka")
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("🔔 Podsjetnici", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Podesi vrijeme za jutarnju, podnevnu i večernju notifikaciju.")
+
+                // Jutro row
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Jutro", fontWeight = FontWeight.Medium)
+                        Text(jutroTime, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(onClick = { showTimePickerJutro = true }) { Text("Odaberi") }
+                }
+
+                // Podne row
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Podne", fontWeight = FontWeight.Medium)
+                        Text(podneTime, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(onClick = { showTimePickerPodne = true }) { Text("Odaberi") }
+                }
+
+                // Večer row
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Večer", fontWeight = FontWeight.Medium)
+                        Text(vecerTime, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Button(onClick = { showTimePickerVecer = true }) { Text("Odaberi") }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Napomena: Ovdje se postavlja vrijeme podsjetnika; sama zakazivanja notifikacija/alarma bit će implementirana zasebno.", style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+
+    // Time pickers implemented as AlertDialog with AndroidView TimePicker (reused pattern)
+    if (showTimePickerJutro) {
+        AlertDialog(
+            onDismissRequest = { showTimePickerJutro = false },
+            confirmButton = {
+                TextButton(onClick = { showTimePickerJutro = false }) { Text("Zatvori") }
+            },
+            text = {
+                val parts = jutroTime.split(":")
+                var hour = parts.getOrNull(0)?.toIntOrNull() ?: 8
+                var minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.TimePicker(ctx).apply {
+                            setIs24HourView(true)
+                            try { hour = this.hour; minute = this.minute } catch (_: Throwable) {}
+                            this.hour = hour
+                            this.minute = minute
+                            setOnTimeChangedListener { _, h, m ->
+                                val hh = if (h < 10) "0$h" else "$h"
+                                val mm = if (m < 10) "0$m" else "$m"
+                                jutroTime = "$hh:$mm"
+                                prefs.edit().putString("reminder_jutro", jutroTime).apply()
+                                // Note: scheduling of actual notification can be triggered here
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        )
+    }
+
+    if (showTimePickerPodne) {
+        AlertDialog(
+            onDismissRequest = { showTimePickerPodne = false },
+            confirmButton = {
+                TextButton(onClick = { showTimePickerPodne = false }) { Text("Zatvori") }
+            },
+            text = {
+                val parts = podneTime.split(":")
+                var hour = parts.getOrNull(0)?.toIntOrNull() ?: 14
+                var minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.TimePicker(ctx).apply {
+                            setIs24HourView(true)
+                            try { hour = this.hour; minute = this.minute } catch (_: Throwable) {}
+                            this.hour = hour
+                            this.minute = minute
+                            setOnTimeChangedListener { _, h, m ->
+                                val hh = if (h < 10) "0$h" else "$h"
+                                val mm = if (m < 10) "0$m" else "$m"
+                                podneTime = "$hh:$mm"
+                                prefs.edit().putString("reminder_podne", podneTime).apply()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        )
+    }
+
+    if (showTimePickerVecer) {
+        AlertDialog(
+            onDismissRequest = { showTimePickerVecer = false },
+            confirmButton = {
+                TextButton(onClick = { showTimePickerVecer = false }) { Text("Zatvori") }
+            },
+            text = {
+                val parts = vecerTime.split(":")
+                var hour = parts.getOrNull(0)?.toIntOrNull() ?: 20
+                var minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.TimePicker(ctx).apply {
+                            setIs24HourView(true)
+                            try { hour = this.hour; minute = this.minute } catch (_: Throwable) {}
+                            this.hour = hour
+                            this.minute = minute
+                            setOnTimeChangedListener { _, h, m ->
+                                val hh = if (h < 10) "0$h" else "$h"
+                                val mm = if (m < 10) "0$m" else "$m"
+                                vecerTime = "$hh:$mm"
+                                prefs.edit().putString("reminder_vecer", vecerTime).apply()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        )
     }
 }
 

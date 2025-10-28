@@ -1299,11 +1299,11 @@ fun PocetniEkran(context: Context? = null) {
                 "home" -> {
                     HomeScreen(
                         lijekovi = lijekovi,
-                        onTake = { lijek ->
-                            val grupa = when {
-                                lijek.jutro -> DobaDana.JUTRO
-                                lijek.popodne -> DobaDana.POPODNE
-                                lijek.vecer -> DobaDana.VECER
+                        onTake = { lijek, dobaDana ->
+                            val grupa = when (dobaDana) {
+                                DobaDana.JUTRO -> DobaDana.JUTRO
+                                DobaDana.POPODNE -> DobaDana.POPODNE
+                                DobaDana.VECER -> DobaDana.VECER
                                 else -> null
                             }
                             if (grupa != null && lijek.mozeUzeti(grupa)) {
@@ -1466,7 +1466,7 @@ fun AnimatedFAB(
 @Composable
 fun HomeScreen(
     lijekovi: List<Lijek>,
-    onTake: (Lijek) -> Unit,
+    onTake: (Lijek, DobaDana?) -> Unit,
     onEdit: (Lijek) -> Unit,
     modifier: Modifier = Modifier,
     scaffoldPadding: PaddingValues = PaddingValues(0.dp)
@@ -1527,7 +1527,7 @@ fun HomeScreen(
                             onClick = {
                                 skipSnackbarOnTakeAll.value = true
                                 grupaLijekova.forEach {
-                                    if (it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0) onTake(it)
+                                    if (it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0) onTake(it, doba)
                                 }
                                 skipSnackbarOnTakeAll.value = false
                             },
@@ -1546,7 +1546,7 @@ fun HomeScreen(
                         LijekCard(
                             lijek = lijek,
                             onTake = {
-                                if (!skipSnackbarOnTakeAll.value) onTake(lijek)
+                                if (!skipSnackbarOnTakeAll.value) onTake(lijek, doba)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1588,7 +1588,7 @@ fun HomeScreen(
                     LijekCard(
                         lijek = lijek,
                         onTake = {
-                            if (!skipSnackbarOnTakeAll.value) onTake(lijek)
+                            if (!skipSnackbarOnTakeAll.value) onTake(lijek, null)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1627,7 +1627,7 @@ fun HomeScreen(
                     LijekCard(
                         lijek = lijek,
                         onTake = {
-                            if (!skipSnackbarOnTakeAll.value) onTake(lijek)
+                            if (!skipSnackbarOnTakeAll.value) onTake(lijek, null)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )

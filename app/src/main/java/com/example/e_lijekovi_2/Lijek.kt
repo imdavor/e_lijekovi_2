@@ -308,7 +308,40 @@ data class Lijek(
             TipUzimanja.STANDARDNO -> {
                 val noveDoze = dozeZaDan.toMutableMap()
                 if (dobaDana != null) noveDoze[dobaDana] = true
-                copy(trenutnoStanje = novoStanje, dozeZaDan = noveDoze)
+
+                // Record a UzimanjeRecord for standard doses
+                val today = IntervalnoUzimanje.createDateFormat().format(Date())
+                val scheduled = when (dobaDana) {
+                    DobaDana.JUTRO -> vrijemeJutro
+                    DobaDana.POPODNE -> vrijemePopodne
+                    DobaDana.VECER -> vrijemeVecer
+                    else -> vrijeme ?: IntervalnoUzimanje.createTimeFormat().format(Date())
+                }
+                val actual = actualTime ?: IntervalnoUzimanje.createTimeFormat().format(Date())
+
+                // Determine lateness (>30 min)
+                val isLate = try {
+                    val sp = scheduled.split(":")
+                    val ap = actual.split(":")
+                    val scheduledMins = sp[0].toInt() * 60 + sp[1].toInt()
+                    val actualMins = ap[0].toInt() * 60 + ap[1].toInt()
+                    (actualMins - scheduledMins) > 30
+                } catch (e: Exception) {
+                    false
+                }
+
+                val newRecord = UzimanjeRecord(
+                    scheduledTime = scheduled,
+                    actualTime = actual,
+                    isLate = isLate,
+                    date = today
+                )
+
+                copy(
+                    trenutnoStanje = novoStanje,
+                    dozeZaDan = noveDoze,
+                    complianceHistory = (complianceHistory + newRecord).takeLast(90)
+                )
             }
             TipUzimanja.INTERVALNO -> {
                 val now = actualTime ?: IntervalnoUzimanje.createTimeFormat().format(Date())

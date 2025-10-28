@@ -23,6 +23,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
+import com.example.e_lijekovi_2.Lijek
+import com.example.e_lijekovi_2.DobaDana
+import com.example.e_lijekovi_2.IntervalnoUzimanje
+import com.example.e_lijekovi_2.TipUzimanja
 
 // Prilagođeni model proizvoda
 // Po potrebi proširi ili promijeni polja
@@ -129,25 +133,50 @@ fun ProductCard(
     }
 }
 
-// REMOVE this data class Lijek, use the main model instead
-// import com.example.e_lijekovi_2.Lijek
-
 @Composable
 fun LijekCard(
     lijek: com.example.e_lijekovi_2.Lijek,
     onTake: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val mozeUzeti = lijek.mozeUzeti(null)
     val jeUzet = lijek.jeUzetZaDanas()
-    val zadnjeUzimanje = lijek.complianceHistory.lastOrNull { it.actualTime != null }
-    val zadnjeUzimanjeTekst = zadnjeUzimanje?.let { "Zadnje: ${it.date} u ${it.actualTime}" } ?: "Nema podataka"
-    // Ispravno dohvaćanje compliance statistike za intervalne lijekove
+    // restore compliance stats text
     val complianceStats = when (lijek.tipUzimanja) {
-        com.example.e_lijekovi_2.TipUzimanja.INTERVALNO -> lijek.intervalnoUzimanje?.getComplianceStats(7)
+        TipUzimanja.INTERVALNO -> lijek.intervalnoUzimanje?.getComplianceStats(7)
         else -> null
     }
     val complianceText = complianceStats?.let { "Uzimanje: ${it.complianceRate.toInt()}% u zadnjih 7 dana" } ?: ""
+
+    val mozeUzeti = when (lijek.tipUzimanja) {
+        TipUzimanja.INTERVALNO -> {
+            val next = lijek.intervalnoUzimanje?.sljedeceVrijeme()
+            next != null && lijek.trenutnoStanje > 0 && (lijek.intervalnoUzimanje?.complianceHistory?.none { it.scheduledTime == next && it.date == IntervalnoUzimanje.createDateFormat().format(java.util.Date()) } ?: true)
+        }
+        TipUzimanja.STANDARDNO -> {
+            val moguJutro = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)
+            val moguPodne = lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)
+            val moguVecer = lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)
+            (moguJutro || moguPodne || moguVecer) && lijek.trenutnoStanje > 0
+        }
+    }
+
+    // Compute last-taking text: prefer actual complianceHistory; for STANDARDNO if none, show which doze are still available today
+    val zadnjeUzimanjeTekst = run {
+        val zadnje = lijek.complianceHistory.lastOrNull { it.actualTime != null }
+        if (zadnje != null) {
+            "Zadnje: ${zadnje.date} u ${zadnje.actualTime}"
+        } else {
+            if (lijek.tipUzimanja == TipUzimanja.STANDARDNO) {
+                val available = mutableListOf<String>()
+                if (lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)) available.add("Jutro ${lijek.vrijemeJutro}")
+                if (lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)) available.add("Podne ${lijek.vrijemePopodne}")
+                if (lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)) available.add("Večer ${lijek.vrijemeVecer}")
+                if (available.isNotEmpty()) "Dostupno: ${available.joinToString(", ")}" else "Nema podataka"
+            } else {
+                "Nema podataka"
+            }
+        }
+    }
 
     Card(
         modifier = modifier

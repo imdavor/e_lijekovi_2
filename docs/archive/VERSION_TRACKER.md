@@ -58,3 +58,4 @@
 **Kada izdati**: Nakon 1.1.1 release-a
 **versionCode**: 4
 **Fokus**: Drag & Drop, Swipe to Delete, UI poboljšanja
+

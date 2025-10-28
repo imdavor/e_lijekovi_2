@@ -1556,3 +1556,50 @@ fun HomeScreen(
         }
     }
 }
+
+@Composable
+fun AboutScreen(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "O aplikaciji",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                )
+                .clip(RoundedCornerShape(12.dp)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    "e-LijekoviHR",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text("Verzija: ${"1.1.1"}")
+                Text("Hrvatska aplikacija za praćenje lijekova")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Značajke:")
+                Text("• Praćenje standardnih lijekova")
+                Text("• Napredni intervalni doziranje")
+                Text("• Compliance statistike")
+                Text("• Export/Import podataka")
+            }
+        }
+    }
+}

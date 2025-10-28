@@ -774,6 +774,77 @@ fun StatisticsScreen(
                 Text("Intervalni lijekovi: ${lijekovi.count { it.tipUzimanja == TipUzimanja.INTERVALNO }}")
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // DODANO: Sažetak o cijenama
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                )
+                .clip(RoundedCornerShape(12.dp)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("💶 Sažetak upisanih cijena", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                // Parsiraj cijene: podržava zarez ili točku (CIJENA JE PO PAKIRANJU)
+                val parsedPackagePrices = lijekovi.mapNotNull { l ->
+                    l.cijena.replace(',', '.').toDoubleOrNull()
+                }
+
+                val packageCount = parsedPackagePrices.size
+                val sumPackagePrices = parsedPackagePrices.sum()
+                val avgPackagePrice = if (packageCount > 0) sumPackagePrices / packageCount else 0.0
+                val minPackage = parsedPackagePrices.minOrNull() ?: 0.0
+                val maxPackage = parsedPackagePrices.maxOrNull() ?: 0.0
+
+                // Izračun per-unit cijena i ukupne vrijednosti zaliha
+                val perUnitPrices = lijekovi.mapNotNull { l ->
+                    val p = l.cijena.replace(',', '.').toDoubleOrNull()
+                    if (p == null) return@mapNotNull null
+                    val pak = if (l.pakiranje > 0) l.pakiranje.toDouble() else 1.0
+                    p / pak
+                }
+
+                val sumUnitPrices = perUnitPrices.sum()
+                val avgUnitPrice = if (perUnitPrices.isNotEmpty()) sumUnitPrices / perUnitPrices.size else 0.0
+
+                // Ukupna vrijednost zaliha: tretiramo cijenu kao cijenu po pakiranju
+                // vrijednost za lijek = cijena_po_pakiranju * (trenutnoStanje / pakiranje)
+                val totalStockValue = lijekovi.fold(0.0) { acc, l ->
+                    val p = l.cijena.replace(',', '.').toDoubleOrNull()
+                    if (p == null) return@fold acc
+                    val pak = if (l.pakiranje > 0) l.pakiranje.toDouble() else 1.0
+                    // koliko pakovanja predstavljaju trenutnoStanje
+                    val pakovanja = l.trenutnoStanje.toDouble() / pak
+                    acc + p * pakovanja
+                }
+
+                fun fmt(v: Double): String {
+                    val s = String.format(java.util.Locale.getDefault(), "%.2f €", v)
+                    return s.replace('.', ',')
+                }
+
+                Text("Broj lijekova s upisanom cijenom (po pakiranju): $packageCount")
+                Text("Zbroj unesenih cijena (po pakiranju): ${fmt(sumPackagePrices)}")
+                Text("Prosječna cijena (po pakiranju): ${fmt(avgPackagePrice)}")
+                Text("Najniža / Najviša cijena (po pakiranju): ${fmt(minPackage)} / ${fmt(maxPackage)}")
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Prosječna cijena po jedinici: ${fmt(avgUnitPrice)}", style = MaterialTheme.typography.bodySmall)
+                Text("Ukupna vrijednost zaliha (pretpostavka: cijena je za pakiranje): ${fmt(totalStockValue)}")
+
+                if (packageCount == 0) {
+                    Text("Nema unesenih cijena.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
     }
 }
 
@@ -1407,36 +1478,35 @@ fun PocetniEkran(context: Context? = null) {
                      }
                  }
                  editLijek = null
-             }
-            , onDelete = { deletedLijek ->
-                val idx = lijekovi.indexOfFirst { it.id == deletedLijek.id }
-                if (idx != -1) {
-                    // Remove and keep a reference to the removed item so we can restore it on Undo
-                    val removed = lijekovi.removeAt(idx)
-                    saveData()
-                    scope.launch {
-                        // Show snackbar with 'Poništi' action to allow undoing the delete
-                        val result = snackbarHostState.showSnackbar(
-                            message = "Lijek '${removed.naziv}' obrisan",
-                            actionLabel = "Poništi",
-                            duration = SnackbarDuration.Short
-                        )
+             },
+             onDelete = { deletedLijek ->
+                 val idx = lijekovi.indexOfFirst { it.id == deletedLijek.id }
+                 if (idx != -1) {
+                     // Remove and keep a reference to the removed item so we can restore it on Undo
+                     val removed = lijekovi.removeAt(idx)
+                     saveData()
+                     scope.launch {
+                         // Show snackbar with 'Poništi' action to allow undoing the delete
+                         val result = snackbarHostState.showSnackbar(
+                             message = "Lijek '${removed.naziv}' obrisan",
+                             actionLabel = "Poništi",
+                             duration = SnackbarDuration.Short
+                         )
 
-                        if (result == SnackbarResult.ActionPerformed) {
-                            // Reinsert the removed item at its previous index (or end if index out of range)
-                            val insertIndex = if (idx <= lijekovi.size) idx else lijekovi.size
-                            lijekovi.add(insertIndex, removed)
-                            saveData()
-                        }
-                    }
-                }
-                editLijek = null
-            }
-        )
+                         if (result == SnackbarResult.ActionPerformed) {
+                             // Reinsert the removed item at its previous index (or end if index out of range)
+                             val insertIndex = if (idx <= lijekovi.size) idx else lijekovi.size
+                             lijekovi.add(insertIndex, removed)
+                             saveData()
+                         }
+                     }
+                 }
+                 editLijek = null
+             }
+         )
      }
 }
 
-// Enhanced HomeScreen with new animated components
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnimatedFAB(
@@ -1475,6 +1545,58 @@ fun HomeScreen(
     scaffoldPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val localContext = LocalContext.current
+
+    // --- NEW: compute reorder candidates and total cost ---
+    val reorderInfo = remember(lijekovi) {
+        var totalCost = 0.0
+        var count = 0
+        val details = mutableListOf<Pair<String, Double>>()
+
+        for (l in lijekovi) {
+            // parse unitsPerDose from `doza` string (e.g. "2", "1/2", "2x" -> 2), default 1
+            val unitsPerDose = l.doza.trim().let { d ->
+                // try to extract leading integer
+                val match = Regex("\\d+").find(d)
+                match?.value?.toIntOrNull() ?: 1
+            }
+
+            // determine doses per day
+            val dosesPerDay = when (l.tipUzimanja) {
+                TipUzimanja.STANDARDNO -> {
+                    val stdTimes = listOf(l.jutro, l.popodne, l.vecer).count { it }
+                    if (stdTimes > 0) stdTimes.toDouble() else 1.0
+                }
+                TipUzimanja.INTERVALNO -> {
+                    val interval = l.intervalnoUzimanje?.intervalSati ?: 0
+                    if (interval > 0) 24.0 / interval else 1.0
+                }
+            }
+
+            // daily consumption in units
+            val dailyConsumption = unitsPerDose * dosesPerDay
+
+            // days remaining until zero at current consumption
+            val daysRemaining = if (dailyConsumption > 0.0) l.trenutnoStanje.toDouble() / dailyConsumption else Double.POSITIVE_INFINITY
+
+            // Rules for reorder:
+            // - If stock <= 7 units -> reorder
+            // - If units per dose >=2 ("duplo"), also reorder when stock <= 14
+            // - Or if estimated days remaining <= 7 -> reorder
+            val needsOrder = (l.trenutnoStanje <= 7) || (unitsPerDose >= 2 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
+
+            if (needsOrder) {
+                val price = l.cijena.replace(',', '.').toDoubleOrNull() ?: 0.0
+                if (price > 0.0) totalCost += price
+                count += 1
+                details.add(l.naziv to price)
+            }
+        }
+
+        Triple(count, totalCost, details.toList())
+    }
+
+    val (reorderCount, reorderTotal, reorderDetails) = reorderInfo
+
     val grupe = listOf(
         DobaDana.JUTRO to "Jutro",
         DobaDana.POPODNE to "Podne",
@@ -1492,6 +1614,39 @@ fun HomeScreen(
                 + 16.dp // internal margin
         )
     ) {
+        // show reorder summary as first item
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("🛒 Ukupno za narudžbu", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("Lijekova za narudžbu: $reorderCount")
+                    val fmt = { v: Double -> String.format(java.util.Locale.getDefault(), "%.2f €", v).replace('.', ',') }
+                    Text("Ukupno: ${fmt(reorderTotal)}", fontWeight = FontWeight.Bold)
+
+                    if (reorderCount > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        // show small list of items and prices
+                        for ((name, price) in reorderDetails) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(name)
+                                Text(if (price > 0.0) fmt(price) else "-", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Nema lijekova za narudžbu trenutno.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+
         grupe.forEach { (doba, naziv) ->
             val grupaLijekova = lijekovi.filter {
                 when (doba) {
@@ -1539,9 +1694,7 @@ fun HomeScreen(
                                 }
                                 skipSnackbarOnTakeAll.value = false
 
-                                // If at least one medicine was taken, send a single aggregated notification
                                 if (takenCount > 0) {
-                                    // Send localized label name (Jutro/Podne/Večer)
                                     NotificationScheduler.sendTherapyTakenNotification(localContext, naziv)
                                 }
                             },
@@ -1570,10 +1723,8 @@ fun HomeScreen(
                 }
             }
         }
-        // Dodaj "Intervalno" grupu za intervalne lijekove
-        val intervalniLijekovi = lijekovi.filter {
-            it.tipUzimanja == TipUzimanja.INTERVALNO
-        }
+
+        val intervalniLijekovi = lijekovi.filter { it.tipUzimanja == TipUzimanja.INTERVALNO }
         if (intervalniLijekovi.isNotEmpty()) {
             item {
                 Row(
@@ -1609,10 +1760,8 @@ fun HomeScreen(
                 }
             }
         }
-        // Dodaj "Ostali" grupu za lijekove bez termina i koji nisu intervalni
-        val ostaliLijekovi = lijekovi.filter {
-            !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja != TipUzimanja.INTERVALNO
-        }
+
+        val ostaliLijekovi = lijekovi.filter { !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja != TipUzimanja.INTERVALNO }
         if (ostaliLijekovi.isNotEmpty()) {
             item {
                 Row(

@@ -1,11 +1,16 @@
 package com.example.e_lijekovi_2
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
 import android.os.Bundle
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
@@ -76,9 +81,49 @@ private fun calculateNextDose(interval: IntervalnoUzimanje): String? {
 }
 
 class MainActivity : ComponentActivity() {
+    private lateinit var requestNotificationPermissionLauncher: ActivityResultLauncher<String>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Register permission launcher
+        requestNotificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            // No-op here; NotificationReceiver checks permission when posting
+        }
+
+        // Create notification channel
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Podsjetnici"
+            val descriptionText = "Channel for medicine reminders"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(NotificationScheduler.CHANNEL_ID, name, importance).apply {
+                description = descriptionText
+            }
+            val notificationManager: NotificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        // Request POST_NOTIFICATIONS permission on Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = android.Manifest.permission.POST_NOTIFICATIONS
+            if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermissionLauncher.launch(permission)
+            }
+        }
+
+        // Schedule reminders from saved prefs
+        val prefs = getSharedPreferences("e_lijekovi_prefs", Context.MODE_PRIVATE)
+        prefs.getString("reminder_jutro", null)?.let {
+            NotificationScheduler.scheduleDailyReminder(this, it, "Jutro")
+        }
+        prefs.getString("reminder_podne", null)?.let {
+            NotificationScheduler.scheduleDailyReminder(this, it, "Podne")
+        }
+        prefs.getString("reminder_vecer", null)?.let {
+            NotificationScheduler.scheduleDailyReminder(this, it, "Večer")
+        }
+
         setContent {
             E_lijekovi_2Theme(
                 darkTheme = isSystemInDarkTheme(), // Eksplicitno koristimo system dark theme
@@ -865,7 +910,8 @@ fun SettingsScreen(
                                 val mm = if (m < 10) "0$m" else "$m"
                                 jutroTime = "$hh:$mm"
                                 prefs.edit().putString("reminder_jutro", jutroTime).apply()
-                                // Note: scheduling of actual notification can be triggered here
+                                // Schedule or reschedule the daily reminder
+                                NotificationScheduler.scheduleDailyReminder(context, jutroTime, "Jutro")
                             }
                         }
                     },
@@ -897,6 +943,8 @@ fun SettingsScreen(
                                 val mm = if (m < 10) "0$m" else "$m"
                                 podneTime = "$hh:$mm"
                                 prefs.edit().putString("reminder_podne", podneTime).apply()
+                                // Schedule or reschedule the daily reminder
+                                NotificationScheduler.scheduleDailyReminder(context, podneTime, "Podne")
                             }
                         }
                     },
@@ -928,6 +976,8 @@ fun SettingsScreen(
                                 val mm = if (m < 10) "0$m" else "$m"
                                 vecerTime = "$hh:$mm"
                                 prefs.edit().putString("reminder_vecer", vecerTime).apply()
+                                // Schedule or reschedule the daily reminder
+                                NotificationScheduler.scheduleDailyReminder(context, vecerTime, "Večer")
                             }
                         }
                     },

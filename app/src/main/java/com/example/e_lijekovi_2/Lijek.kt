@@ -269,8 +269,9 @@ data class Lijek(
                 } ?: false
             }
             TipUzimanja.STANDARDNO -> {
-                // Za standardno uzimanje, možemo dodati logiku ako je potrebno
-                false
+                // Ako postoje zapisi u complianceHistory za današnji datum, smatra se da je lijek (ili barem jedna doza) uzet danas
+                val today = IntervalnoUzimanje.createDateFormat().format(Date())
+                complianceHistory.any { it.date == today && it.actualTime != null }
             }
         }
     }

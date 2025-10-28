@@ -382,7 +382,10 @@ fun LijekDialog(
                             sortOrderJutro = lijek?.sortOrderJutro ?: 0,
                             sortOrderPopodne = lijek?.sortOrderPopodne ?: 0,
                             sortOrderVecer = lijek?.sortOrderVecer ?: 0,
-                            cijena = cijena.trim()
+                            cijena = cijena.trim(),
+                            // Preserve existing compliance history and per-day flags so edits (npr. cijena) don't clear taken records
+                            complianceHistory = lijek?.complianceHistory ?: emptyList(),
+                            dozeZaDan = lijek?.dozeZaDan ?: mutableMapOf()
                         )
                         onSave(noviLijek)
                     }

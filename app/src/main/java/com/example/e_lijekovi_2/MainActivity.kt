@@ -1218,14 +1218,23 @@ fun PocetniEkran(context: Context? = null) {
             , onDelete = { deletedLijek ->
                 val idx = lijekovi.indexOfFirst { it.id == deletedLijek.id }
                 if (idx != -1) {
-                    val nazivBrisanog = lijekovi[idx].naziv
-                    lijekovi.removeAt(idx)
+                    // Remove and keep a reference to the removed item so we can restore it on Undo
+                    val removed = lijekovi.removeAt(idx)
                     saveData()
                     scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = "Lijek '$nazivBrisanog' obrisan",
+                        // Show snackbar with 'Poništi' action to allow undoing the delete
+                        val result = snackbarHostState.showSnackbar(
+                            message = "Lijek '${removed.naziv}' obrisan",
+                            actionLabel = "Poništi",
                             duration = SnackbarDuration.Short
                         )
+
+                        if (result == SnackbarResult.ActionPerformed) {
+                            // Reinsert the removed item at its previous index (or end if index out of range)
+                            val insertIndex = if (idx <= lijekovi.size) idx else lijekovi.size
+                            lijekovi.add(insertIndex, removed)
+                            saveData()
+                        }
                     }
                 }
                 editLijek = null

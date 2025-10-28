@@ -12,6 +12,17 @@ i ovaj projekt prati [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - [ ] Funkcionalnost brisanja lijekova
 - [ ] Popravljanje konfliktnih komponenti (MainActivity duplikati)
 
+## [1.1.1] - 2025-10-28
+### Added
+- ✅ Snackbar "Poništi" (Undo) nakon brisanja lijeka — omogućava brzo vraćanje obrisanog zapisa (MainActivity)
+
+### Changed
+- 🔼 Podižen `targetSdk` na 36
+- 🔼 Ažurirana biblioteka `com.google.android.material` na 1.13.0
+
+### Fixed
+- ✅ Manji refaktori i dokumentacijske izmjene
+
 ## [1.1.0] - 2024-12-14
 ### Added - Nove funkcionalnosti
 - ✅ Schedule Tracking Sistem sa JPN (Jutro-Popodne-Navečer) indikatorima
@@ -72,4 +83,4 @@ Uvećava se kada:
 ### versionCode (za Google Play)
 - Uvek se uvećava za 1 sa svakim build-om
 - Nezavisan od semantic versioning
-- Trenutno: versionCode = 2 za verziju 1.1.0
+- Trenutno: versionCode = 3 za verziju 1.1.1

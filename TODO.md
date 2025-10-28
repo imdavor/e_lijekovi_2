@@ -1,7 +1,7 @@
 # TODO za e-Lijekovi (Android)
 
 ## Verzija
-- Trenutna verzija: 1.1.0 (versionCode: 2)
+- Trenutna verzija: 1.1.1 (versionCode: 3)
 - Verzije i promjene prate se u CHANGELOG.md i VERSION_TRACKER.md
 
 ---
@@ -18,6 +18,7 @@
 - Ručno sortiranje lijekova unutar grupe (drag & drop)
 - Poboljšan UI: kompaktan prikaz, filteri, search bar
 - Edit i unos lijekova s podrškom za sve bitne podatke
+- Dodano: Snackbar "Poništi" (Undo) za brisanje lijekova — omogućava vraćanje obrisanog lijeka ako korisnik brzo odabere 'Poništi' (MainActivity)
 - Svi glavni problemi iz prethodnih verzija su riješeni (ikonice, import/export, duplikati, serialization, build)
 
 ---
@@ -71,9 +72,3 @@
 - Sve glavne funkcionalnosti iz verzije 1.1.0 su stabilne i testirane.
 - Za detalje o promjenama pogledati CHANGELOG.md i VERSION_TRACKER.md.
 - Sljedeća verzija (1.1.1) bit će fokusirana na bugfixeve i stabilnost.
-
-
-## Ako želiš:
-Dodam Undo akciju u snackbar (preporučam) — omogućit će vraćanje obrisanog lijeka ako korisnik brzo odabere 'Poništi'.
-Premjestim Obriši u confirmButton (ako želiš drugačiji raspored gumba) ili dodam ikonicu/sigurnosni modal radi veće jasnoće.
-Hoćeš li da odmah dodam Undo (Poništi) u snackbar?

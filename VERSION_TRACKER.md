@@ -1,6 +1,6 @@
 # VERSION TRACKER - Aktivno praćenje izmena
 
-## 🚀 TRENUTNA VERZIJA: 1.1.0 (versionCode: 2)
+## 🚀 TRENUTNA VERZIJA: 1.1.1 (versionCode: 3)
 
 ---
 

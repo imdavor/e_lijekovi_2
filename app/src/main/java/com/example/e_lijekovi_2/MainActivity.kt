@@ -1546,19 +1546,11 @@ fun HomeScreen(
 ) {
     val localContext = LocalContext.current
 
-    // --- NEW: compute reorder candidates and total cost ---
-    val reorderInfo = remember(lijekovi) {
+    val reorderTotal = remember(lijekovi) {
         var totalCost = 0.0
-        var count = 0
-        val details = mutableListOf<Pair<String, Double>>()
-
         for (l in lijekovi) {
-            // parse unitsPerDose from `doza` string (e.g. "2", "1/2", "2x" -> 2), default 1
-            val unitsPerDose = l.doza.trim().let { d ->
-                // try to extract leading integer
-                val match = Regex("\\d+").find(d)
-                match?.value?.toIntOrNull() ?: 1
-            }
+            // parse unitsPerDose from `doza` (first integer found), default 1
+            val unitsPerDose = l.doza.trim().let { d -> Regex("\\d+").find(d)?.value?.toIntOrNull() ?: 1 }
 
             // determine doses per day
             val dosesPerDay = when (l.tipUzimanja) {
@@ -1572,30 +1564,22 @@ fun HomeScreen(
                 }
             }
 
-            // daily consumption in units
             val dailyConsumption = unitsPerDose * dosesPerDay
-
-            // days remaining until zero at current consumption
             val daysRemaining = if (dailyConsumption > 0.0) l.trenutnoStanje.toDouble() / dailyConsumption else Double.POSITIVE_INFINITY
 
-            // Rules for reorder:
-            // - If stock <= 7 units -> reorder
-            // - If units per dose >=2 ("duplo"), also reorder when stock <= 14
-            // - Or if estimated days remaining <= 7 -> reorder
-            val needsOrder = (l.trenutnoStanje <= 7) || (unitsPerDose >= 2 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
+            // 'Žuti' rules:
+            // - stock units <= 7 (direct count)
+            // - if units per dose >=2 ("duplo"), also treat <=14 units as warning
+            // - OR estimated days remaining <= 7
+            val isYellow = (l.trenutnoStanje <= 7) || (unitsPerDose >= 2 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
 
-            if (needsOrder) {
+            if (isYellow) {
                 val price = l.cijena.replace(',', '.').toDoubleOrNull() ?: 0.0
-                if (price > 0.0) totalCost += price
-                count += 1
-                details.add(l.naziv to price)
+                totalCost += price
             }
         }
-
-        Triple(count, totalCost, details.toList())
+        totalCost
     }
-
-    val (reorderCount, reorderTotal, reorderDetails) = reorderInfo
 
     val grupe = listOf(
         DobaDana.JUTRO to "Jutro",
@@ -1624,25 +1608,8 @@ fun HomeScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
-                    Text("🛒 Ukupno za narudžbu", fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("Lijekova za narudžbu: $reorderCount")
                     val fmt = { v: Double -> String.format(java.util.Locale.getDefault(), "%.2f €", v).replace('.', ',') }
-                    Text("Ukupno: ${fmt(reorderTotal)}", fontWeight = FontWeight.Bold)
-
-                    if (reorderCount > 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // show small list of items and prices
-                        for ((name, price) in reorderDetails) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(name)
-                                Text(if (price > 0.0) fmt(price) else "-", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Nema lijekova za narudžbu trenutno.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    Text("🛒 Ukupno za narudžbu: ${fmt(reorderTotal)}", fontWeight = FontWeight.Bold)
                 }
             }
         }

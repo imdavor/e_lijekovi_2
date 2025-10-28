@@ -361,4 +361,24 @@ app/src/main/java/com/example/e_lijekovi_2/
 
 ---
 
-*Zadnja izmjena: 10. Listopad 2025.*
+## ✅ ZADNJE PROMJENE (28.10.2025)
+
+Kratki sažetak promjena napravljenih danas:
+
+- HomeScreen: jednom dohvaćen kontekst na početku kompozicije
+  - Dodano/koristi se `val localContext = LocalContext.current` na početku `@Composable fun HomeScreen(...)`.
+  - `localContext` se koristi u onClick handleru gumba "Uzmi sve" (umjesto poziva `LocalContext.current` izvan kompozicije), čime se izbjegava pozivanje kompozabilne funkcije iz ne-kompozabilnog scopea.
+- MainActivity.kt: mali kodni refaktor
+  - Zamijenjen redundantni kvalifikator `Context.MODE_PRIVATE` s `MODE_PRIVATE` u pozivu `getSharedPreferences(...)`.
+- Build i provjera
+  - Pokrenut je puni Gradle build (`assembleDebug`) — build je prošao (BUILD SUCCESSFUL).
+  - Zabilježena su manja upozorenja (ne-blokirajuće) koja je preporučljivo riješiti:
+    - Parametar `granted` u registraciji `ActivityResultContracts.RequestPermission()` nije korišten (može se preimenovati u `_`).
+    - U `ui/components/ProductCard.kt` postoji nepotreban siguran poziv (`?.`) na nepotreban nullable receiver — može se pojednostaviti.
+    - U `ui/theme/Theme.kt` postoji upotreba deprecated setter-a za `statusBarColor` — preporučuje se zamjena novijom API logikom.
+
+Stanje: izmjene su male i ne utječu na postojeću logiku aplikacije; build je uspješno prošao. Preporučam rješavanje navedenih upozorenja u sljedećem mini-commit-u radi čišćeg koda.
+
+---
+
+*Zadnja izmjena: 28. Listopad 2025.*

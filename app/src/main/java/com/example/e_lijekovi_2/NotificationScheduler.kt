@@ -4,6 +4,11 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import java.util.*
 
 object NotificationScheduler {
@@ -77,5 +82,43 @@ object NotificationScheduler {
             "Večer" -> cancelReminder(context, 1003)
             else -> cancelReminder(context, 1000)
         }
+    }
+
+    /**
+     * Send an immediate (one-off) notification with given title/message.
+     * Performs POST_NOTIFICATIONS permission check on Android 13+.
+     */
+    fun sendImmediateNotification(context: Context, title: String, message: String, notificationId: Int = 2000) {
+        // Check notification permission on Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                // Permission not granted; do not post
+                return
+            }
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+
+        // Use NotificationManagerCompat to post notification (avoids platform cast issues in editor/runtime)
+        NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+    }
+
+    /**
+     * Send a single aggregated notification indicating the therapy for a time-of-day was taken.
+     * label is expected to be one of: "Jutro", "Podne", "Večer" (falls back to a generic message).
+     */
+    fun sendTherapyTakenNotification(context: Context, label: String) {
+        val (title, message, id) = when (label) {
+            "Jutro" -> Triple("Jutarnja terapija uzeta", "Sva jutarnja terapija je označena kao uzeta.", 3001)
+            "Podne" -> Triple("Podnevna terapija uzeta", "Sva podnevna terapija je označena kao uzeta.", 3002)
+            "Večer" -> Triple("Večernja terapija uzeta", "Sva večernja terapija je označena kao uzeta.", 3003)
+            else -> Triple("Terapija uzeta", "Sva terapija je označena kao uzeta.", 3000)
+        }
+        sendImmediateNotification(context, title, message, id)
     }
 }

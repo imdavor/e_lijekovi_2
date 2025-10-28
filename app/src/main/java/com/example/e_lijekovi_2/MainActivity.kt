@@ -117,7 +117,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Schedule reminders from saved prefs
-        val prefs = getSharedPreferences("e_lijekovi_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("e_lijekovi_prefs", MODE_PRIVATE)
         prefs.getString("reminder_jutro", null)?.let {
             NotificationScheduler.scheduleDailyReminder(this, it, "Jutro")
         }
@@ -1471,6 +1471,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     scaffoldPadding: PaddingValues = PaddingValues(0.dp)
 ) {
+    val localContext = LocalContext.current
     val grupe = listOf(
         DobaDana.JUTRO to "Jutro",
         DobaDana.POPODNE to "Podne",
@@ -1526,10 +1527,20 @@ fun HomeScreen(
                         Button(
                             onClick = {
                                 skipSnackbarOnTakeAll.value = true
+                                var takenCount = 0
                                 grupaLijekova.forEach {
-                                    if (it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0) onTake(it, doba)
+                                    if (it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0) {
+                                        onTake(it, doba)
+                                        takenCount++
+                                    }
                                 }
                                 skipSnackbarOnTakeAll.value = false
+
+                                // If at least one medicine was taken, send a single aggregated notification
+                                if (takenCount > 0) {
+                                    // Send localized label name (Jutro/Podne/Večer)
+                                    NotificationScheduler.sendTherapyTakenNotification(localContext, naziv)
+                                }
                             },
                             enabled = mozeUzetiNetko,
                             modifier = Modifier

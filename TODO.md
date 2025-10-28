@@ -72,3 +72,9 @@
 - Sve glavne funkcionalnosti iz verzije 1.1.0 su stabilne i testirane.
 - Za detalje o promjenama pogledati CHANGELOG.md i VERSION_TRACKER.md.
 - Sljedeća verzija (1.1.1) bit će fokusirana na bugfixeve i stabilnost.
+- 
+- 
+  Želite li da odmah:
+  ispravim ta tri upozorenja (preimenujem granted u _, pojednostavim ProductCard.kt, i riješim deprecated statusBarColor u Theme.kt) i ponovno pokrenem build? (Preporučam — male čiste izmjene, brzo se testiraju.)
+  ili nastavimo s nekim drugim zadatkom (npr. implementacija local persistence, poboljšanje notifikacija, ili naplata/animacije)?
+  Reci što želiš da napravim dalje — mogu odmah primijeniti i testirati izmjene.

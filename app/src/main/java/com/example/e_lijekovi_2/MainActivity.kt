@@ -41,6 +41,10 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import com.example.e_lijekovi_2.ui.components.LijekCard
 import kotlinx.coroutines.launch
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 
 // Helper functions for interval therapy calculations
 private fun calculateRemainingDoses(interval: IntervalnoUzimanje): Int {
@@ -777,6 +781,9 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
 
+    // Notification enabled check
+    val notificationsEnabled = remember { NotificationManagerCompat.from(context).areNotificationsEnabled() }
+
     // Load saved reminder times from SharedPreferences (format HH:mm)
     val prefs = remember { context.getSharedPreferences("e_lijekovi_prefs", Context.MODE_PRIVATE) }
     var jutroTime by remember { mutableStateOf(prefs.getString("reminder_jutro", "08:00") ?: "08:00") }
@@ -853,6 +860,29 @@ fun SettingsScreen(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("🔔 Podsjetnici", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Podesi vrijeme za jutarnju, podnevnu i večernju notifikaciju.")
+
+                // Notification status row
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Status notifikacija", fontWeight = FontWeight.Medium)
+                        Text(if (notificationsEnabled) "Uključeno" else "Isključeno", color = if (notificationsEnabled) MaterialTheme.colorScheme.primary else Color.Red)
+                    }
+                    Button(onClick = {
+                        // Open app notification settings
+                        val intent = Intent().apply {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                action = Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                            } else {
+                                action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                        }
+                        context.startActivity(intent)
+                    }) {
+                        Text("Otvori postavke")
+                    }
+                }
 
                 // Jutro row
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {

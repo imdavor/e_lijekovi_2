@@ -1113,11 +1113,53 @@ fun PocetniEkran(context: Context? = null) {
         Unit
     }
 
+    // snapshot key to force recomputation of derived aggregates when list items change
+    var priceSnapshot by remember { mutableStateOf(0L) }
+    fun touchSnapshot() { priceSnapshot = priceSnapshot + 1 }
+
+    // Derived total for reorder computed at owner level so it tracks list changes reliably
+    val reorderTotal by remember {
+        derivedStateOf {
+            // read priceSnapshot to make derivedStateOf observe it (so touchSnapshot() forces recompute)
+            run { priceSnapshot }
+
+            var totalCost = 0.0
+            for (l in lijekovi) {
+                // parse unitsPerDose from `doza` (first integer found), default 1
+                val unitsPerDose = l.doza.trim().let { d -> Regex("\\d+").find(d)?.value?.toIntOrNull() ?: 1 }
+
+                // determine doses per day
+                val dosesPerDay = when (l.tipUzimanja) {
+                    TipUzimanja.STANDARDNO -> {
+                        val stdTimes = listOf(l.jutro, l.popodne, l.vecer).count { it }
+                        if (stdTimes > 0) stdTimes.toDouble() else 1.0
+                    }
+                    TipUzimanja.INTERVALNO -> {
+                        val interval = l.intervalnoUzimanje?.intervalSati ?: 0
+                        if (interval > 0) 24.0 / interval else 1.0
+                    }
+                }
+
+                val dailyConsumption = unitsPerDose * dosesPerDay
+                val daysRemaining = if (dailyConsumption > 0.0) l.trenutnoStanje.toDouble() / dailyConsumption else Double.POSITIVE_INFINITY
+
+                val isYellow = (l.trenutnoStanje <= 7) || (unitsPerDose >= 2 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
+
+                if (isYellow) {
+                    val price = l.cijena.replace(',', '.').toDoubleOrNull() ?: 0.0
+                    if (price > 0.0) totalCost += price
+                }
+            }
+            totalCost
+        }
+    }
+
     // Enhanced add with highlight animation
     val handleAddLijek: (Lijek) -> Unit = { newLijek ->
         val lijekWithId = newLijek.copy(id = idCounter++)
         lijekovi.add(lijekWithId)
         saveData()
+        touchSnapshot()
         showAddLijek = false
 
         scope.launch {
@@ -1143,6 +1185,7 @@ fun PocetniEkran(context: Context? = null) {
                 lijekovi.clear()
                 lijekovi.addAll(loadedLijekovi)
                 idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
+                touchSnapshot()
             }
         }
     }
@@ -1170,6 +1213,7 @@ fun PocetniEkran(context: Context? = null) {
                         lijekovi.addAll(importedLijekovi)
                         idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
                         saveData()
+                        touchSnapshot()
                         currentScreen = "home"
                         showMessage = "✅ Podaci uspješno importirani!\n\nUčitano ${importedLijekovi.size} lijekova."
                     } else {
@@ -1373,6 +1417,7 @@ fun PocetniEkran(context: Context? = null) {
                 "home" -> {
                     HomeScreen(
                         lijekovi = lijekovi,
+                        reorderTotal = reorderTotal,
                         onTake = { lijek, dobaDana ->
                             val grupa = when (dobaDana) {
                                 DobaDana.JUTRO -> DobaDana.JUTRO
@@ -1381,26 +1426,30 @@ fun PocetniEkran(context: Context? = null) {
                                 else -> null
                             }
                             if (grupa != null && lijek.mozeUzeti(grupa)) {
-                                lijekovi[lijekovi.indexOf(lijek)] = lijek.uzmiLijek(grupa)
-                                saveData()
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        "Uspješno uzeto: ${lijek.naziv}",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            } else {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        "Nije moguće uzeti dozu za ${lijek.naziv}",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
+                                val idx = lijekovi.indexOf(lijek)
+                                if (idx != -1) {
+                                    lijekovi[idx] = lijek.uzmiLijek(grupa)
+                                    saveData()
+                                    touchSnapshot()
                             }
-                        },
-                        onEdit = { lijek -> editLijek = lijek },
-                        modifier = Modifier.padding(paddingValues)
-                    )
+
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Uspješno uzeto: ${lijek.naziv}",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        } else {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Nije moguće uzeti dozu za ${lijek.naziv}",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        }
+                    },
+                    onEdit = { lijek -> editLijek = lijek },
+                    modifier = Modifier.padding(paddingValues))
                 }
                 "statistics" -> {
                     StatisticsScreen(
@@ -1469,6 +1518,7 @@ fun PocetniEkran(context: Context? = null) {
                  if (index != -1) {
                      lijekovi[index] = updatedLijek
                      saveData()
+                     touchSnapshot()
 
                      scope.launch {
                          snackbarHostState.showSnackbar(
@@ -1485,6 +1535,7 @@ fun PocetniEkran(context: Context? = null) {
                      // Remove and keep a reference to the removed item so we can restore it on Undo
                      val removed = lijekovi.removeAt(idx)
                      saveData()
+                     touchSnapshot()
                      scope.launch {
                          // Show snackbar with 'Poništi' action to allow undoing the delete
                          val result = snackbarHostState.showSnackbar(
@@ -1498,6 +1549,7 @@ fun PocetniEkran(context: Context? = null) {
                              val insertIndex = if (idx <= lijekovi.size) idx else lijekovi.size
                              lijekovi.add(insertIndex, removed)
                              saveData()
+                             touchSnapshot()
                          }
                      }
                  }
@@ -1539,6 +1591,7 @@ fun AnimatedFAB(
 @Composable
 fun HomeScreen(
     lijekovi: List<Lijek>,
+    reorderTotal: Double,
     onTake: (Lijek, DobaDana?) -> Unit,
     onEdit: (Lijek) -> Unit,
     modifier: Modifier = Modifier,
@@ -1546,40 +1599,6 @@ fun HomeScreen(
 ) {
     val localContext = LocalContext.current
 
-    val reorderTotal = remember(lijekovi) {
-        var totalCost = 0.0
-        for (l in lijekovi) {
-            // parse unitsPerDose from `doza` (first integer found), default 1
-            val unitsPerDose = l.doza.trim().let { d -> Regex("\\d+").find(d)?.value?.toIntOrNull() ?: 1 }
-
-            // determine doses per day
-            val dosesPerDay = when (l.tipUzimanja) {
-                TipUzimanja.STANDARDNO -> {
-                    val stdTimes = listOf(l.jutro, l.popodne, l.vecer).count { it }
-                    if (stdTimes > 0) stdTimes.toDouble() else 1.0
-                }
-                TipUzimanja.INTERVALNO -> {
-                    val interval = l.intervalnoUzimanje?.intervalSati ?: 0
-                    if (interval > 0) 24.0 / interval else 1.0
-                }
-            }
-
-            val dailyConsumption = unitsPerDose * dosesPerDay
-            val daysRemaining = if (dailyConsumption > 0.0) l.trenutnoStanje.toDouble() / dailyConsumption else Double.POSITIVE_INFINITY
-
-            // 'Žuti' rules:
-            // - stock units <= 7 (direct count)
-            // - if units per dose >=2 ("duplo"), also treat <=14 units as warning
-            // - OR estimated days remaining <= 7
-            val isYellow = (l.trenutnoStanje <= 7) || (unitsPerDose >= 2 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
-
-            if (isYellow) {
-                val price = l.cijena.replace(',', '.').toDoubleOrNull() ?: 0.0
-                totalCost += price
-            }
-        }
-        totalCost
-    }
 
     val grupe = listOf(
         DobaDana.JUTRO to "Jutro",

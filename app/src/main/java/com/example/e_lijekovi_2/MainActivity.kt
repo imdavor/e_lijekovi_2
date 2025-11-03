@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         // Register permission launcher
-        requestNotificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        requestNotificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
             // No-op here; NotificationReceiver checks permission when posting
         }
 
@@ -126,6 +126,13 @@ class MainActivity : ComponentActivity() {
         }
         prefs.getString("reminder_vecer", null)?.let {
             NotificationScheduler.scheduleDailyReminder(this, it, "Večer")
+        }
+
+        // Ensure midnight reset alarm is scheduled (safe: NotificationScheduler handles SecurityException fallback)
+        try {
+            NotificationScheduler.scheduleMidnightReset(this)
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Ne mogu zakazati midnight reset: ${e.message}")
         }
 
         setContent {
@@ -1428,28 +1435,47 @@ fun PocetniEkran(context: Context? = null) {
                             if (grupa != null && lijek.mozeUzeti(grupa)) {
                                 val idx = lijekovi.indexOf(lijek)
                                 if (idx != -1) {
-                                    lijekovi[idx] = lijek.uzmiLijek(grupa)
+                                    // Save previous for undo
+                                    val previous = lijekovi[idx]
+                                    val updated = previous.uzmiLijek(grupa)
+                                    lijekovi[idx] = updated
                                     saveData()
                                     touchSnapshot()
-                            }
 
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    "Uspješno uzeto: ${lijek.naziv}",
-                                    duration = SnackbarDuration.Short
-                                )
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Uspješno uzeto: ${lijek.naziv}",
+                                            actionLabel = "Poništi",
+                                            duration = SnackbarDuration.Short
+                                        )
+
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            // restore previous state
+                                            val restoreIdx = lijekovi.indexOfFirst { it.id == previous.id }
+                                            if (restoreIdx != -1) {
+                                                lijekovi[restoreIdx] = previous
+                                                saveData()
+                                                touchSnapshot()
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Notify user that therapy was taken (use available context and lijek name)
+                                context?.let { ctx ->
+                                    NotificationScheduler.sendTherapyTakenNotification(ctx, lijek.naziv)
+                                }
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        "Nije moguće uzeti dozu za ${lijek.naziv}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
                             }
-                        } else {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    "Nije moguće uzeti dozu za ${lijek.naziv}",
-                                    duration = SnackbarDuration.Short
-                                )
-                            }
-                        }
-                    },
-                    onEdit = { lijek -> editLijek = lijek },
-                    modifier = Modifier.padding(paddingValues))
+                        },
+                        onEdit = { lijek -> editLijek = lijek },
+                        modifier = Modifier.padding(paddingValues))
                 }
                 "statistics" -> {
                     StatisticsScreen(

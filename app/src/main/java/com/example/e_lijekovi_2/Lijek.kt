@@ -199,7 +199,24 @@ data class Lijek(
     fun mozeUzeti(dobaDana: DobaDana?, vrijeme: String? = null, datum: String? = null): Boolean {
         // Onemogući dvostruko uzimanje za isti termin
         return when (tipUzimanja) {
-            TipUzimanja.STANDARDNO -> dobaDana != null && dozeZaDan[dobaDana] != true && trenutnoStanje > 0
+            TipUzimanja.STANDARDNO -> {
+                if (dobaDana == null) return false
+                // Preferiramo provjeru prema complianceHistory (datum + scheduledTime) umjesto dozeZaDan map,
+                // jer je to otpornije na propuste alarmnog resetiranja.
+                val today = IntervalnoUzimanje.createDateFormat().format(Date())
+                val scheduled = when (dobaDana) {
+                    DobaDana.JUTRO -> vrijemeJutro
+                    DobaDana.POPODNE -> vrijemePopodne
+                    DobaDana.VECER -> vrijemeVecer
+                }
+
+                val alreadyTakenByHistory = complianceHistory.any { it.date == today && it.scheduledTime == scheduled && it.actualTime != null }
+                if (alreadyTakenByHistory) return false
+
+                // Backward-compatible fallback: ako nema zapis u complianceHistory, provjeri dozeZaDan map
+                val mapFlag = dozeZaDan[dobaDana] == true
+                !mapFlag && trenutnoStanje > 0
+            }
             TipUzimanja.INTERVALNO -> vrijeme != null && complianceHistory.none { it.scheduledTime == vrijeme && it.date == datum } && trenutnoStanje > 0
         }
     }

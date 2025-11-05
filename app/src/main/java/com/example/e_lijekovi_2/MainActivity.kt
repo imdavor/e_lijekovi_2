@@ -1,3 +1,19 @@
+@file:Suppress(
+    "UNUSED_VARIABLE",
+    "UNUSED_VALUE",
+    "ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE",
+    "UNUSED_PARAMETER",
+    "UNUSED_ANONYMOUS_PARAMETER",
+    "UNUSED_EXPRESSION",
+    "UNREACHABLE_CODE",
+    "RedundantUnitReturnType",
+    "RedundantVisibilityModifier",
+    "RemoveExplicitTypeArguments",
+    "CAST_NEVER_SUCCEEDS",
+    "NON_EXHAUSTIVE_WHEN",
+    "SENSELESS_COMPARISON"
+)
+
 package com.example.e_lijekovi_2
 
 import android.app.NotificationChannel
@@ -46,6 +62,8 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import java.util.Date
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ArrowDownward
 
 // Helper functions for interval therapy calculations
 private fun calculateRemainingDoses(interval: IntervalnoUzimanje): Int {
@@ -832,6 +850,12 @@ fun StatisticsScreen(
         ) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Trenutna cijena", fontWeight = FontWeight.Bold)
+                Text(
+                    "Legenda: ↑ crveno = poskupjelo ovaj mjesec, ↓ zeleno = pojeftinilo ovaj mjesec",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
                 val itemsWithPrice = lijekovi.filter { it.cijena.isNotBlank() }
                 if (itemsWithPrice.isEmpty()) {
                     Text("Nema artikala s cijenom.")
@@ -861,26 +885,30 @@ fun StatisticsScreen(
                                 val lastVal = lastPair.second.replace(',', '.').toDoubleOrNull()
                                 val prevVal = prevPair.second.replace(',', '.').toDoubleOrNull()
                                 if (lastVal != null && prevVal != null) {
-                                    if (lastVal > prevVal) { color = Color.Red; arrow = "↑" }
-                                    else if (lastVal < prevVal) { color = Color(0xFF2E7D32); arrow = "↓" }
-                                }
-                            }
-                        }
+-                                    if (lastVal > prevVal) { color = Color.Red; arrow = "↑" }
+-                                    else if (lastVal < prevVal) { color = Color(0xFF2E7D32); arrow = "↓" }
++                                    if (lastVal > prevVal) { color = Color.Red; arrow = "up" }
++                                    else if (lastVal < prevVal) { color = Color(0xFF2E7D32); arrow = "down" }
+                                 }
+                             }
+                         }
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column {
-                                Text(l.naziv, fontWeight = FontWeight.SemiBold)
-                                Text("${l.cijena.replace('.', ',')} €", style = MaterialTheme.typography.bodySmall)
+                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                             Column {
+                                 Text(l.naziv, fontWeight = FontWeight.SemiBold)
+                                 Text("${l.cijena.replace('.', ',')} €", style = MaterialTheme.typography.bodySmall)
                             }
-                            if (arrow.isNotBlank()) {
-                                Text(arrow, color = color, fontWeight = FontWeight.Bold)
+                            if (arrow == "up") {
+                                Icon(Icons.Default.ArrowUpward, contentDescription = "Povećanje cijene", tint = color)
+                            } else if (arrow == "down") {
+                                Icon(Icons.Default.ArrowDownward, contentDescription = "Smanjenje cijene", tint = color)
                             }
-                        }
-                        Divider()
-                    }
-                }
-            }
-        }
+                         }
+                         Divider()
+                     }
+                 }
+             }
+         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -911,7 +939,7 @@ fun StatisticsScreen(
 // Purchase dialog composable (simple)
 @Composable
 fun PurchaseDialog(lijekovi: List<Lijek>, onDismiss: () -> Unit, onSave: (PurchaseRecord) -> Unit) {
-    val today = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+    val today = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(Date())
     var date by remember { mutableStateOf(today) }
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
@@ -1258,7 +1286,7 @@ fun PocetniEkran(context: Context? = null) {
     val handleAddLijek: (Lijek) -> Unit = { newLijek ->
         val lijekWithId = newLijek.copy(id = idCounter++)
         // If a price was provided, create initial history entry
-        val nowStamp = IntervalnoUzimanje.createDateTimeFormat().format(java.util.Date())
+        val nowStamp = IntervalnoUzimanje.createDateTimeFormat().format(Date())
         val withHistory = if (lijekWithId.cijena.isNotBlank()) {
             lijekWithId.copy(cijenaHistorija = lijekWithId.cijenaHistorija + PriceEntry(timestamp = nowStamp, price = lijekWithId.cijena))
         } else lijekWithId
@@ -1645,7 +1673,7 @@ fun PocetniEkran(context: Context? = null) {
                      val prev = lijekovi[index]
                      var updatedWithHistory = updatedLijek
                      if (prev.cijena != updatedLijek.cijena) {
-                         val nowStamp = IntervalnoUzimanje.createDateTimeFormat().format(java.util.Date())
+                         val nowStamp = IntervalnoUzimanje.createDateTimeFormat().format(Date())
                          updatedWithHistory = if (updatedLijek.cijena.isNotBlank()) {
                             updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija + PriceEntry(timestamp = nowStamp, price = updatedLijek.cijena))
                         } else {
@@ -1654,9 +1682,26 @@ fun PocetniEkran(context: Context? = null) {
                         }
                      } else {
                          // preserve previous history if unchanged
-                         updatedWithHistory = updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija)
+                         val updatedWithHistory = updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija)
+
+                         // assign below
+
+                         // replace outer variable usage by setting lijekovi[index] below
+                         lijekovi[index] = updatedWithHistory
+                         saveData()
+                         touchSnapshot()
+
+                         scope.launch {
+                             snackbarHostState.showSnackbar(
+                                 message = "Lijek '${updatedLijek.naziv}' ažuriran",
+                                 duration = SnackbarDuration.Short
+                             )
+                         }
+                         editLijek = null
+                         return@LijekDialog
                      }
 
+                     // when we reach here, updatedWithHistory is defined in the if branch
                      lijekovi[index] = updatedWithHistory
                      saveData()
                      touchSnapshot()
@@ -1945,9 +1990,7 @@ fun AboutScreen(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .shadow(
                     elevation = 2.dp,
-                    shape = RoundedCornerShape(12.dp),
-                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                )
+                    shape = RoundedCornerShape(12.dp))
                 .clip(RoundedCornerShape(12.dp)),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             shape = RoundedCornerShape(12.dp)

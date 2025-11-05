@@ -62,6 +62,7 @@ object PurchaseManager {
         }
     }
 
+    @Suppress("unused")
     fun saveToFile(context: Context, uri: Uri, purchases: List<PurchaseRecord>): Boolean {
         return try {
             val jsonString = json.encodeToString(purchases)
@@ -75,6 +76,7 @@ object PurchaseManager {
         }
     }
 
+    @Suppress("unused")
     fun loadFromFile(context: Context, uri: Uri): List<PurchaseRecord>? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->

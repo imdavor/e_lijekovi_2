@@ -24,7 +24,9 @@ data class UzimanjeRecord(
     val scheduledTime: String, // Planirano vrijeme uzimanja (HH:mm)
     val actualTime: String? = null, // Stvarno vrijeme uzimanja (HH:mm), null ako nije uzet
     val isLate: Boolean = false, // Je li uzet kasno (>30 min nakon planiranog)
-    val date: String // Datum uzimanja (yyyy-MM-dd)
+    val date: String, // Datum uzimanja (yyyy-MM-dd)
+    // New: snapshot of price per package at moment of taking (npr. "12,50") - nullable for backward compatibility
+    val priceAtTake: String? = null
 )
 
 @OptIn(InternalSerializationApi::class)
@@ -144,6 +146,14 @@ data class IntervalnoUzimanje(
     }
 }
 
+// Serializable entry for price history
+@Serializable
+data class PriceEntry(
+    val timestamp: String, // format: dd-MM-yyyy HH:mm (uses IntervalnoUzimanje.createDateTimeFormat())
+    val price: String // raw price string as entered (e.g., "12,34")
+)
+
+@OptIn(InternalSerializationApi::class)
 @Serializable
 data class ComplianceStats(
     val totalScheduled: Int,
@@ -163,6 +173,8 @@ data class Lijek(
     val pakiranje: Int = 30,
     var trenutnoStanje: Int = 30,
     val cijena: String = "",
+    // New field: historical price entries (kept as list of snapshots). Backwards compatible default empty list.
+    val cijenaHistorija: List<PriceEntry> = emptyList(),
     val tipUzimanja: TipUzimanja = TipUzimanja.STANDARDNO,
     val intervalnoUzimanje: IntervalnoUzimanje? = null,
     val complianceHistory: List<UzimanjeRecord> = emptyList(),
@@ -254,7 +266,8 @@ data class Lijek(
                     scheduledTime = scheduled,
                     actualTime = actual,
                     isLate = isLate,
-                    date = today
+                    date = today,
+                    priceAtTake = this.cijena.takeIf { it.isNotBlank() }
                 )
 
                 copy(
@@ -271,7 +284,8 @@ data class Lijek(
                     scheduledTime = vrijeme ?: now,
                     actualTime = now,
                     isLate = isLate,
-                    date = today
+                    date = today,
+                    priceAtTake = this.cijena.takeIf { it.isNotBlank() }
                 )
                 copy(trenutnoStanje = novoStanje, complianceHistory = (complianceHistory + noviRecord).takeLast(90))
             }

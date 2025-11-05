@@ -742,6 +742,13 @@ fun StatisticsScreen(
     lijekovi: List<Lijek>,
     modifier: Modifier = Modifier
 ) {
+    // Load purchases from storage (one-time) and hold in state
+    val context = LocalContext.current
+    var purchases by remember { mutableStateOf(listOf<PurchaseRecord>()) }
+    LaunchedEffect(Unit) {
+        purchases = PurchaseManager.loadFromLocalStorage(context)
+    }
+
     // We'll show only price-history focused stats and monthly consumption
     Column(
         modifier = modifier
@@ -750,60 +757,123 @@ fun StatisticsScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            "Statistike cijena i potrošnje",
+            "Cijena UKUPNO",
             style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Price history list: show only items that have more than one price entry OR a single entry (initial)
+        // Aggregate purchases by month (YYYY-MM)
+        val monthCost = remember(purchases) {
+            val map = mutableMapOf<String, Double>()
+            val df = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault())
+            for (p in purchases) {
+                try {
+                    val d = df.parse(p.date) ?: continue
+                    val cal = java.util.Calendar.getInstance()
+                    cal.time = d
+                    val key = String.format(java.util.Locale.getDefault(), "%04d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1)
+                    map[key] = (map[key] ?: 0.0) + p.amount
+                } catch (_: Exception) { }
+            }
+            map
+        }
+
+        // current month summary
+        val nowCal = java.util.Calendar.getInstance()
+        val curKey = String.format(java.util.Locale.getDefault(), "%04d-%02d", nowCal.get(java.util.Calendar.YEAR), nowCal.get(java.util.Calendar.MONTH) + 1)
+        val currentMonthSum = monthCost[curKey] ?: 0.0
+        val yearPrefix = String.format(java.util.Locale.getDefault(), "%04d-", nowCal.get(java.util.Calendar.YEAR))
+        val yearToDate = monthCost.filterKeys { it.startsWith(yearPrefix) }.values.sum()
+        val allTime = monthCost.values.sum()
+
+        fun fmtMoney(v: Double) = String.format(java.util.Locale.getDefault(), "%.2f €", v).replace('.', ',')
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                .padding(bottom = 12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("Trenutna potrošnja ($curKey): ${fmtMoney(currentMonthSum)}", fontWeight = FontWeight.Bold)
+                Text("Godišnje (do sad ${nowCal.get(java.util.Calendar.YEAR)}): ${fmtMoney(yearToDate)}")
+                Text("Ukupno (svi podaci): ${fmtMoney(allTime)}")
+            }
+        }
+
+        // Monthly breakdown list
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Mjesečna potrošnja:", fontWeight = FontWeight.SemiBold)
+                if (monthCost.isEmpty()) Text("Nema podataka o kupovinama.") else {
+                    monthCost.toList().sortedByDescending { it.first }.forEach { (m, s) ->
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(m)
+                            Text(fmtMoney(s))
+                        }
+                        Divider()
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Price tracking list: show items that have current price
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("📈 Praćenje cijena (samo artikli s povijesću)", fontWeight = FontWeight.Bold)
-
-                val itemsWithHistory = lijekovi.filter { it.cijenaHistorija.isNotEmpty() }
-
-                if (itemsWithHistory.isEmpty()) {
-                    Text("Nema unesenih povijesti cijena.")
+                Text("Trenutna cijena", fontWeight = FontWeight.Bold)
+                val itemsWithPrice = lijekovi.filter { it.cijena.isNotBlank() }
+                if (itemsWithPrice.isEmpty()) {
+                    Text("Nema artikala s cijenom.")
                 } else {
-                    itemsWithHistory.forEach { l ->
-                        // take last and previous price entries to compute delta
-                        val last = l.cijenaHistorija.last()
-                        val prev = if (l.cijenaHistorija.size >= 2) l.cijenaHistorija[l.cijenaHistorija.size - 2] else null
-                        val lastVal = last.price.replace(',', '.').toDoubleOrNull()
-                        val prevVal = prev?.price?.replace(',', '.')?.toDoubleOrNull()
+                    val dfTs = IntervalnoUzimanje.createDateTimeFormat()
+                    itemsWithPrice.forEach { l ->
+                        // find last price entry and previous
+                        val parsedHistory = l.cijenaHistorija.mapNotNull { pe ->
+                            try {
+                                val dt = dfTs.parse(pe.timestamp)
+                                dt?.let { Pair(it.time, pe.price) }
+                            } catch (_: Exception) { null }
+                        }.sortedBy { it.first }
 
-                        val deltaText = when {
-                            prevVal == null && lastVal != null -> "(novo: ${last.price} €)"
-                            prevVal != null && lastVal != null -> {
-                                val diff = lastVal - prevVal
-                                val pct = if (prevVal != 0.0) (diff / prevVal * 100.0) else Double.NaN
-                                val sign = if (diff > 0) "poskupjelo" else if (diff < 0) "pojeftinilo" else "bez promjene"
-                                val pctStr = if (!pct.isNaN()) String.format(java.util.Locale.getDefault(), "%.1f%%", kotlin.math.abs(pct)).replace('.', ',') else "n/a"
-                                "($sign $pctStr)"
+                        val lastPair = parsedHistory.lastOrNull()
+                        val prevPair = if (parsedHistory.size >= 2) parsedHistory[parsedHistory.size - 2] else null
+
+                        // Determine whether the latest change happened in current month
+                        var color = Color.Gray
+                        var arrow = ""
+                        if (lastPair != null && prevPair != null) {
+                            val lastCal = java.util.Calendar.getInstance()
+                            lastCal.timeInMillis = lastPair.first
+                            val nowCal2 = java.util.Calendar.getInstance()
+                            val lastKey = String.format(java.util.Locale.getDefault(), "%04d-%02d", lastCal.get(java.util.Calendar.YEAR), lastCal.get(java.util.Calendar.MONTH) + 1)
+                            if (lastKey == curKey) {
+                                val lastVal = lastPair.second.replace(',', '.').toDoubleOrNull()
+                                val prevVal = prevPair.second.replace(',', '.').toDoubleOrNull()
+                                if (lastVal != null && prevVal != null) {
+                                    if (lastVal > prevVal) { color = Color.Red; arrow = "↑" }
+                                    else if (lastVal < prevVal) { color = Color(0xFF2E7D32); arrow = "↓" }
+                                }
                             }
-                            else -> "(nedostupno)"
                         }
 
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column {
                                 Text(l.naziv, fontWeight = FontWeight.SemiBold)
-                                Text("Zadnja: ${last.price.replace('.', ',')} € ${deltaText}", style = MaterialTheme.typography.bodySmall)
+                                Text("${l.cijena.replace('.', ',')} €", style = MaterialTheme.typography.bodySmall)
                             }
-                            // Optional small badge
-                            if (prevVal != null && lastVal != null) {
-                                val diff = lastVal - prevVal
-                                val color = if (diff > 0) Color.Red else if (diff < 0) Color(0xFF2E7D32) else Color.Gray
-                                Text(
-                                    text = if (diff > 0) "+${String.format(java.util.Locale.getDefault(), "%.2f", diff).replace('.', ',')} €" else String.format(java.util.Locale.getDefault(), "%.2f €", diff).replace('.', ','),
-                                    color = color,
-                                    fontWeight = FontWeight.Bold
-                                )
+                            if (arrow.isNotBlank()) {
+                                Text(arrow, color = color, fontWeight = FontWeight.Bold)
                             }
                         }
                         Divider()
@@ -812,95 +882,72 @@ fun StatisticsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Monthly consumption: aggregate complianceHistory dates to month buckets
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("📅 Potrošnja po mjesecima (prema povijesti uzimanja)", fontWeight = FontWeight.Bold)
+        // Add Purchase button + dialog
+        var showAddPurchase by remember { mutableStateOf(false) }
+        Button(onClick = { showAddPurchase = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("Dodaj kupovinu / trošak")
+        }
 
-                // Build map year-month -> total money spent
-                val monthCost = mutableMapOf<String, Double>()
-                val dateFormatter = IntervalnoUzimanje.createDateFormat() // dd-MM-yyyy
-                val dateTimeFormatter = IntervalnoUzimanje.createDateTimeFormat() // dd-MM-yyyy HH:mm
-
-                // Helper to find applicable price for a given date: prefer priceAtTake if the record supplies it, else latest price entry <= date, else last entry, else current cijena
-                fun findPriceForRecord(l: Lijek, recordDate: Date, recordPriceAtTake: String?): Double? {
-                    // if a price snapshot was stored with the taking event, use it
-                    recordPriceAtTake?.let { pa ->
-                        return pa.replace(',', '.').toDoubleOrNull()
-                    }
-
-                    // else fall back to historical price lookup by timestamp
-                    val parsed = l.cijenaHistorija.mapNotNull { pe ->
-                        try {
-                            val dt = dateTimeFormatter.parse(pe.timestamp)
-                            dt?.time?.let { Pair(it, pe.price) }
-                        } catch (_: Exception) { null }
-                    }.sortedBy { it.first }
-
-                    val chosen = parsed.lastOrNull { it.first <= recordDate.time } ?: parsed.lastOrNull()
-                    val priceStr = chosen?.second ?: l.cijena
-                    return priceStr.replace(',', '.').toDoubleOrNull()
+        if (showAddPurchase) {
+            PurchaseDialog(
+                lijekovi = lijekovi,
+                onDismiss = { showAddPurchase = false },
+                onSave = { newPurchase ->
+                    // persist
+                    val updated = purchases + newPurchase
+                    purchases = updated
+                    PurchaseManager.saveToLocalStorage(context, updated)
+                    showAddPurchase = false
                 }
+            )
+        }
 
-                // formatting helper (local)
-                fun fmtMoney(v: Double): String = String.format(java.util.Locale.getDefault(), "%.2f €", v).replace('.', ',')
+        // Note: purchases are saved/loaded via PurchaseManager; price history still saved per Lijek via cijenaHistorija
+    }
+}
 
-                for (l in lijekovi) {
-                    for (r in l.complianceHistory) {
-                        try {
-                            val d = dateFormatter.parse(r.date) ?: continue
-                            val cal = java.util.Calendar.getInstance()
-                            cal.time = d
-                            val key = String.format(java.util.Locale.getDefault(), "%04d-%02d", cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1)
+// Purchase dialog composable (simple)
+@Composable
+fun PurchaseDialog(lijekovi: List<Lijek>, onDismiss: () -> Unit, onSave: (PurchaseRecord) -> Unit) {
+    val today = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
+    var date by remember { mutableStateOf(today) }
+    var amount by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var selectedLijekId by remember { mutableStateOf<Int?>(null) }
 
-                            // determine price applicable at that date (prefer priceAtTake)
-                            val pricePerPackage = findPriceForRecord(l, d, r.priceAtTake) ?: continue
-                            val pak = if (l.pakiranje > 0) l.pakiranje.toDouble() else 1.0
-                            val perUnit = pricePerPackage / pak
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Dodaj kupovinu") }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Iznos (€)") }, singleLine = true)
+            OutlinedTextField(value = date, onValueChange = { date = it }, label = { Text("Datum (dd-MM-yyyy)") }, singleLine = true)
+            OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Bilješka (opcionalno)") }, singleLine = true)
 
-                            // parse units per dose from doza (first integer) default 1
-                            val unitsPerDose = l.doza.trim().let { dd -> Regex("\\d+").find(dd)?.value?.toIntOrNull() ?: 1 }
-
-                            val cost = unitsPerDose * perUnit
-
-                            monthCost[key] = (monthCost[key] ?: 0.0) + cost
-                        } catch (_: Exception) { /* ignore malformed dates */ }
-                    }
-                }
-
-                if (monthCost.isEmpty()) {
-                    Text("Nema podataka o potrošnji.")
-                } else {
-                    // compute current month key and summaries
-                    val nowCal = java.util.Calendar.getInstance()
-                    val curKey = String.format(java.util.Locale.getDefault(), "%04d-%02d", nowCal.get(java.util.Calendar.YEAR), nowCal.get(java.util.Calendar.MONTH) + 1)
-                    val currentMonthSum = monthCost[curKey] ?: 0.0
-                    val currentYearPrefix = String.format(java.util.Locale.getDefault(), "%04d-", nowCal.get(java.util.Calendar.YEAR))
-                    val yearToDate = monthCost.filterKeys { it.startsWith(currentYearPrefix) }.values.sum()
-                    val allTime = monthCost.values.sum()
-
-                    Text("Trenutna potrošnja (${curKey}): ${fmtMoney(currentMonthSum)}", fontWeight = FontWeight.Bold)
-                    Text("Godišnje (do sad ${nowCal.get(java.util.Calendar.YEAR)}): ${fmtMoney(yearToDate)}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Ukupno (svi podaci): ${fmtMoney(allTime)}", style = MaterialTheme.typography.bodyMedium)
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // monthly breakdown (most recent first)
-                    monthCost.toList().sortedByDescending { it.first }.forEach { (month, sum) ->
-                        Text("$month: ${fmtMoney(sum)}")
+            // optional lijek dropdown
+            if (lijekovi.isNotEmpty()) {
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    OutlinedTextField(value = lijekovi.firstOrNull { it.id == selectedLijekId }?.naziv ?: "Odaberi lijek (opcionalno)", onValueChange = {}, readOnly = true, modifier = Modifier.fillMaxWidth(), trailingIcon = {
+                        IconButton(onClick = { expanded = !expanded }) { Icon(Icons.Default.ArrowDropDown, contentDescription = null) }
+                    })
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenuItem(text = { Text("Nije vezano") }, onClick = { selectedLijekId = null; expanded = false })
+                        lijekovi.forEach { l ->
+                            DropdownMenuItem(text = { Text(l.naziv) }, onClick = { selectedLijekId = l.id; expanded = false })
+                        }
                     }
                 }
             }
         }
-    }
+    }, confirmButton = {
+        TextButton(onClick = {
+            val amt = amount.replace(',', '.').toDoubleOrNull() ?: 0.0
+            val purchase = PurchaseRecord(id = System.currentTimeMillis(), date = date, amount = amt, note = note.takeIf { it.isNotBlank() }, lijekId = selectedLijekId)
+            onSave(purchase)
+        }) { Text("Spremi") }
+    }, dismissButton = {
+        TextButton(onClick = onDismiss) { Text("Odustani") }
+    })
 }
 
 @Composable

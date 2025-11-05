@@ -1,10 +1,9 @@
-@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+@file:OptIn(InternalSerializationApi::class)
 
 package com.example.e_lijekovi_2
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.InternalSerializationApi
-import kotlinx.serialization.Contextual
 import java.util.*
 import java.text.SimpleDateFormat
 
@@ -57,8 +56,8 @@ data class IntervalnoUzimanje(
         val calendar = Calendar.getInstance()
         if (startDateTime.isNotEmpty()) {
             try {
-                calendar.time = IntervalnoUzimanje.createDateTimeFormat().parse(startDateTime) ?: Date()
-            } catch (e: Exception) {
+                calendar.time = createDateTimeFormat().parse(startDateTime) ?: Date()
+            } catch (_: Exception) {
                 // Fallback na trenutno vrijeme ako parsing fail-a
             }
         }
@@ -68,7 +67,7 @@ data class IntervalnoUzimanje(
     // Generiraj sva planirana vremena uzimanja za određeni dan
     fun generirajVremenaZaDan(date: String): List<String> {
         val vremena = mutableListOf<String>()
-        val targetDate = IntervalnoUzimanje.createDateFormat().parse(date) ?: return emptyList()
+        val targetDate = createDateFormat().parse(date) ?: return emptyList()
         val startCal = getStartCalendar()
 
         // Provjeri je li terapija aktivna za ovaj dan
@@ -90,23 +89,17 @@ data class IntervalnoUzimanje(
         krajDana.set(Calendar.SECOND, 59)
 
         while (dayCal.timeInMillis <= krajDana.timeInMillis) {
-            vremena.add(IntervalnoUzimanje.createTimeFormat().format(dayCal.time))
+            vremena.add(createTimeFormat().format(dayCal.time))
             dayCal.add(Calendar.HOUR_OF_DAY, intervalSati)
         }
 
         return vremena
     }
 
-    // Generiraj vremena uzimanja za današnji dan
-    fun generirajVremenaZaDanas(): List<String> {
-        val today = IntervalnoUzimanje.createDateFormat().format(Date())
-        return generirajVremenaZaDan(today)
-    }
-
     // Sljedeće vrijeme uzimanja
     fun sljedeceVrijeme(): String? {
         val sada = Calendar.getInstance()
-        val today = IntervalnoUzimanje.createDateFormat().format(Date())
+        val today = createDateFormat().format(Date())
         val vremenaZaDanas = generirajVremenaZaDan(today)
 
         for (vrijeme in vremenaZaDanas) {
@@ -124,45 +117,11 @@ data class IntervalnoUzimanje(
         return null // Nema više uzimanja danas
     }
 
-    // Označi dozu kao uzeta
-    fun oznaciDozuUzeta(scheduledTime: String, actualTime: String? = null): IntervalnoUzimanje {
-        val today = IntervalnoUzimanje.createDateFormat().format(Date())
-        val actual = actualTime ?: IntervalnoUzimanje.createTimeFormat().format(Date())
-
-        // Provjeri je li kasno (>30 min)
-        val isLateTaking = if (actualTime != null) {
-            val scheduledParts = scheduledTime.split(":")
-            val actualParts = actual.split(":")
-            val scheduledMins = scheduledParts[0].toInt() * 60 + scheduledParts[1].toInt()
-            val actualMins = actualParts[0].toInt() * 60 + actualParts[1].toInt()
-            (actualMins - scheduledMins) > 30
-        } else {
-            // Ako se uzima sada, provjeri u odnosu na planirano
-            val scheduledParts = scheduledTime.split(":")
-            val now = Calendar.getInstance()
-            val scheduledMins = scheduledParts[0].toInt() * 60 + scheduledParts[1].toInt()
-            val nowMins = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-            (nowMins - scheduledMins) > 30
-        }
-
-        val newRecord = UzimanjeRecord(
-            scheduledTime = scheduledTime,
-            actualTime = actual,
-            isLate = isLateTaking,
-            date = today
-        )
-
-        // Dodaj novi record, zadrži samo zadnjih 90 dana
-        val updatedHistory = (complianceHistory + newRecord).takeLast(90)
-
-        return copy(complianceHistory = updatedHistory)
-    }
-
     // Dobij compliance statistike
     fun getComplianceStats(days: Int = 30): ComplianceStats {
         val cutoffDate = Calendar.getInstance()
         cutoffDate.add(Calendar.DAY_OF_MONTH, -days)
-        val cutoffString = IntervalnoUzimanje.createDateFormat().format(cutoffDate.time)
+        val cutoffString = createDateFormat().format(cutoffDate.time)
 
         val relevantRecords = complianceHistory.filter { it.date >= cutoffString }
 
@@ -182,29 +141,6 @@ data class IntervalnoUzimanje(
             onTimeRate = onTimeRate,
             periodDays = days
         )
-    }
-
-    // Provjeri je li doza već uzeta danas
-    fun jeDozuUzetaDanas(scheduledTime: String): Boolean {
-        val today = IntervalnoUzimanje.createDateFormat().format(Date())
-        return complianceHistory.any { it.date == today && it.scheduledTime == scheduledTime && it.actualTime != null }
-    }
-
-    // Dobij prosječno kašnjenje u minutama
-    fun getAverageDelayMinutes(): Double {
-        val takenRecords = complianceHistory.filter { it.actualTime != null && it.isLate }
-        if (takenRecords.isEmpty()) return 0.0
-
-        var totalDelay = 0
-        for (record in takenRecords) {
-            val scheduledParts = record.scheduledTime.split(":")
-            val actualParts = record.actualTime?.split(":") ?: continue
-            val scheduledMins = scheduledParts[0].toInt() * 60 + scheduledParts[1].toInt()
-            val actualMins = actualParts[0].toInt() * 60 + actualParts[1].toInt()
-            totalDelay += (actualMins - scheduledMins)
-        }
-
-        return totalDelay.toDouble() / takenRecords.size
     }
 }
 
@@ -243,22 +179,6 @@ data class Lijek(
     val sortOrderPopodne: Int = 0,
     val sortOrderVecer: Int = 0
 ) {
-    // Generiraj sva vremena uzimanja za današnji dan
-    fun generirajVremenaZaDanas(): List<String> {
-        val vremena = mutableListOf<String>()
-
-        if (tipUzimanja == TipUzimanja.INTERVALNO) {
-            return intervalnoUzimanje?.generirajVremenaZaDanas() ?: emptyList()
-        }
-
-        // Za standardno uzimanje
-        if (jutro) vremena.add(vrijemeJutro)
-        if (popodne) vremena.add(vrijemePopodne)
-        if (vecer) vremena.add(vrijemeVecer)
-
-        return vremena.sorted()
-    }
-
     // Provjeri je li neki lijek za danas već uzet
     fun jeUzetZaDanas(): Boolean {
         return when (tipUzimanja) {
@@ -269,26 +189,9 @@ data class Lijek(
                 } ?: false
             }
             TipUzimanja.STANDARDNO -> {
-                // Za standardno uzimanje, možemo dodati logiku ako je potrebno
-                false
-            }
-        }
-    }
-
-    // Dobij sljedeće vrijeme uzimanja
-    fun sljedeceVrijeme(): String? {
-        return when (tipUzimanja) {
-            TipUzimanja.INTERVALNO -> intervalnoUzimanje?.sljedeceVrijeme()
-            TipUzimanja.STANDARDNO -> {
-                val sada = Calendar.getInstance()
-                val trenutnoVrijeme = sada.get(Calendar.HOUR_OF_DAY) * 60 + sada.get(Calendar.MINUTE)
-
-                val vremena = generirajVremenaZaDanas()
-                vremena.firstOrNull { vrijeme ->
-                    val dijelovi = vrijeme.split(":")
-                    val vrijemeUMinutama = dijelovi[0].toInt() * 60 + dijelovi[1].toInt()
-                    vrijemeUMinutama > trenutnoVrijeme
-                }
+                // Ako postoje zapisi u complianceHistory za današnji datum, smatra se da je lijek (ili barem jedna doza) uzet danas
+                val today = IntervalnoUzimanje.createDateFormat().format(Date())
+                complianceHistory.any { it.date == today && it.actualTime != null }
             }
         }
     }
@@ -296,7 +199,24 @@ data class Lijek(
     fun mozeUzeti(dobaDana: DobaDana?, vrijeme: String? = null, datum: String? = null): Boolean {
         // Onemogući dvostruko uzimanje za isti termin
         return when (tipUzimanja) {
-            TipUzimanja.STANDARDNO -> dobaDana != null && dozeZaDan[dobaDana] != true && trenutnoStanje > 0
+            TipUzimanja.STANDARDNO -> {
+                if (dobaDana == null) return false
+                // Preferiramo provjeru prema complianceHistory (datum + scheduledTime) umjesto dozeZaDan map,
+                // jer je to otpornije na propuste alarmnog resetiranja.
+                val today = IntervalnoUzimanje.createDateFormat().format(Date())
+                val scheduled = when (dobaDana) {
+                    DobaDana.JUTRO -> vrijemeJutro
+                    DobaDana.POPODNE -> vrijemePopodne
+                    DobaDana.VECER -> vrijemeVecer
+                }
+
+                val alreadyTakenByHistory = complianceHistory.any { it.date == today && it.scheduledTime == scheduled && it.actualTime != null }
+                if (alreadyTakenByHistory) return false
+
+                // Backward-compatible fallback: ako nema zapis u complianceHistory, provjeri dozeZaDan map
+                val mapFlag = dozeZaDan[dobaDana] == true
+                !mapFlag && trenutnoStanje > 0
+            }
             TipUzimanja.INTERVALNO -> vrijeme != null && complianceHistory.none { it.scheduledTime == vrijeme && it.date == datum } && trenutnoStanje > 0
         }
     }
@@ -326,7 +246,7 @@ data class Lijek(
                     val scheduledMins = sp[0].toInt() * 60 + sp[1].toInt()
                     val actualMins = ap[0].toInt() * 60 + ap[1].toInt()
                     (actualMins - scheduledMins) > 30
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     false
                 }
 
@@ -356,9 +276,5 @@ data class Lijek(
                 copy(trenutnoStanje = novoStanje, complianceHistory = (complianceHistory + noviRecord).takeLast(90))
             }
         }
-    }
-
-    fun resetirajDozeZaDan() {
-        dozeZaDan.keys.forEach { dozeZaDan[it] = false }
     }
 }

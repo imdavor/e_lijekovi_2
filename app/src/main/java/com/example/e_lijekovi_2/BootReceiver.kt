@@ -25,7 +25,13 @@ class BootReceiver : BroadcastReceiver() {
                 val parts = it.split(":")
                 if (parts.size >= 2) NotificationScheduler.scheduleDailyReminder(context, parts[0].toInt(), parts[1].toInt(), 1003, "Večernji podsjetnik", "Vrijeme je za večernje lijekove")
             }
+
+            // Try to schedule midnight reset as well (safe: NotificationScheduler handles SecurityException fallback)
+            try {
+                NotificationScheduler.scheduleMidnightReset(context)
+            } catch (e: Exception) {
+                android.util.Log.w("BootReceiver", "Ne mogu zakazati midnight reset nakon boot-a: ${e.message}")
+            }
         }
     }
 }
-

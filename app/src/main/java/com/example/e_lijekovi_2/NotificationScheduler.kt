@@ -121,4 +121,48 @@ object NotificationScheduler {
         }
         sendImmediateNotification(context, title, message, id)
     }
+
+    /**
+     * Schedule a midnight reset for per-day flags. This tries to use an exact alarm
+     * (setExactAndAllowWhileIdle) when available; if that requires permission and
+     * fails, it falls back to a non-exact set() to avoid crashing the app.
+     *
+     * Note: to guarantee an absolute exact reset at 00:00 you must request the
+     * SCHEDULE_EXACT_ALARM (or USE_EXACT_ALARM) permission from the platform / user.
+     */
+    fun scheduleMidnightReset(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, MidnightResetReceiver::class.java).apply {
+            action = "com.example.e_lijekovi_2.ACTION_MIDNIGHT_RESET"
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            4001,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = System.currentTimeMillis()
+            // Advance to next midnight (00:00:00)
+            add(Calendar.DAY_OF_YEAR, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        try {
+            // Try to schedule an exact alarm. If the app doesn't have permission this may throw SecurityException
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+        } catch (se: SecurityException) {
+            // Fall back to non-exact alarm to avoid crashing the app. Log the situation.
+            android.util.Log.w("NotificationScheduler", "Nemam dozvolu za exact alarm - koristim inexact fallback: ${se.message}")
+            alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+        } catch (e: NoSuchMethodError) {
+            // Some older devices/SDK stubs may not have setExactAndAllowWhileIdle symbol; fallback to set().
+            android.util.Log.w("NotificationScheduler", "setExactAndAllowWhileIdle nije dostupan, fallback: ${e.message}")
+            alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+        }
+    }
 }

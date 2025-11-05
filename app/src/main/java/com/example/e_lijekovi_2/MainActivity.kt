@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         // Register permission launcher
-        requestNotificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        requestNotificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
             // No-op here; NotificationReceiver checks permission when posting
         }
 
@@ -126,6 +126,13 @@ class MainActivity : ComponentActivity() {
         }
         prefs.getString("reminder_vecer", null)?.let {
             NotificationScheduler.scheduleDailyReminder(this, it, "Večer")
+        }
+
+        // Ensure midnight reset alarm is scheduled (safe: NotificationScheduler handles SecurityException fallback)
+        try {
+            NotificationScheduler.scheduleMidnightReset(this)
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Ne mogu zakazati midnight reset: ${e.message}")
         }
 
         setContent {
@@ -382,7 +389,10 @@ fun LijekDialog(
                             sortOrderJutro = lijek?.sortOrderJutro ?: 0,
                             sortOrderPopodne = lijek?.sortOrderPopodne ?: 0,
                             sortOrderVecer = lijek?.sortOrderVecer ?: 0,
-                            cijena = cijena.trim()
+                            cijena = cijena.trim(),
+                            // Preserve existing compliance history and per-day flags so edits (npr. cijena) don't clear taken records
+                            complianceHistory = lijek?.complianceHistory ?: emptyList(),
+                            dozeZaDan = lijek?.dozeZaDan ?: mutableMapOf()
                         )
                         onSave(noviLijek)
                     }
@@ -771,6 +781,77 @@ fun StatisticsScreen(
                 Text("Intervalni lijekovi: ${lijekovi.count { it.tipUzimanja == TipUzimanja.INTERVALNO }}")
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // DODANO: Sažetak o cijenama
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+                )
+                .clip(RoundedCornerShape(12.dp)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("💶 Sažetak upisanih cijena", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                // Parsiraj cijene: podržava zarez ili točku (CIJENA JE PO PAKIRANJU)
+                val parsedPackagePrices = lijekovi.mapNotNull { l ->
+                    l.cijena.replace(',', '.').toDoubleOrNull()
+                }
+
+                val packageCount = parsedPackagePrices.size
+                val sumPackagePrices = parsedPackagePrices.sum()
+                val avgPackagePrice = if (packageCount > 0) sumPackagePrices / packageCount else 0.0
+                val minPackage = parsedPackagePrices.minOrNull() ?: 0.0
+                val maxPackage = parsedPackagePrices.maxOrNull() ?: 0.0
+
+                // Izračun per-unit cijena i ukupne vrijednosti zaliha
+                val perUnitPrices = lijekovi.mapNotNull { l ->
+                    val p = l.cijena.replace(',', '.').toDoubleOrNull()
+                    if (p == null) return@mapNotNull null
+                    val pak = if (l.pakiranje > 0) l.pakiranje.toDouble() else 1.0
+                    p / pak
+                }
+
+                val sumUnitPrices = perUnitPrices.sum()
+                val avgUnitPrice = if (perUnitPrices.isNotEmpty()) sumUnitPrices / perUnitPrices.size else 0.0
+
+                // Ukupna vrijednost zaliha: tretiramo cijenu kao cijenu po pakiranju
+                // vrijednost za lijek = cijena_po_pakiranju * (trenutnoStanje / pakiranje)
+                val totalStockValue = lijekovi.fold(0.0) { acc, l ->
+                    val p = l.cijena.replace(',', '.').toDoubleOrNull()
+                    if (p == null) return@fold acc
+                    val pak = if (l.pakiranje > 0) l.pakiranje.toDouble() else 1.0
+                    // koliko pakovanja predstavljaju trenutnoStanje
+                    val pakovanja = l.trenutnoStanje.toDouble() / pak
+                    acc + p * pakovanja
+                }
+
+                fun fmt(v: Double): String {
+                    val s = String.format(java.util.Locale.getDefault(), "%.2f €", v)
+                    return s.replace('.', ',')
+                }
+
+                Text("Broj lijekova s upisanom cijenom (po pakiranju): $packageCount")
+                Text("Zbroj unesenih cijena (po pakiranju): ${fmt(sumPackagePrices)}")
+                Text("Prosječna cijena (po pakiranju): ${fmt(avgPackagePrice)}")
+                Text("Najniža / Najviša cijena (po pakiranju): ${fmt(minPackage)} / ${fmt(maxPackage)}")
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Prosječna cijena po jedinici: ${fmt(avgUnitPrice)}", style = MaterialTheme.typography.bodySmall)
+                Text("Ukupna vrijednost zaliha (pretpostavka: cijena je za pakiranje): ${fmt(totalStockValue)}")
+
+                if (packageCount == 0) {
+                    Text("Nema unesenih cijena.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
     }
 }
 
@@ -1039,11 +1120,53 @@ fun PocetniEkran(context: Context? = null) {
         Unit
     }
 
+    // snapshot key to force recomputation of derived aggregates when list items change
+    var priceSnapshot by remember { mutableStateOf(0L) }
+    fun touchSnapshot() { priceSnapshot = priceSnapshot + 1 }
+
+    // Derived total for reorder computed at owner level so it tracks list changes reliably
+    val reorderTotal by remember {
+        derivedStateOf {
+            // read priceSnapshot to make derivedStateOf observe it (so touchSnapshot() forces recompute)
+            run { priceSnapshot }
+
+            var totalCost = 0.0
+            for (l in lijekovi) {
+                // parse unitsPerDose from `doza` (first integer found), default 1
+                val unitsPerDose = l.doza.trim().let { d -> Regex("\\d+").find(d)?.value?.toIntOrNull() ?: 1 }
+
+                // determine doses per day
+                val dosesPerDay = when (l.tipUzimanja) {
+                    TipUzimanja.STANDARDNO -> {
+                        val stdTimes = listOf(l.jutro, l.popodne, l.vecer).count { it }
+                        if (stdTimes > 0) stdTimes.toDouble() else 1.0
+                    }
+                    TipUzimanja.INTERVALNO -> {
+                        val interval = l.intervalnoUzimanje?.intervalSati ?: 0
+                        if (interval > 0) 24.0 / interval else 1.0
+                    }
+                }
+
+                val dailyConsumption = unitsPerDose * dosesPerDay
+                val daysRemaining = if (dailyConsumption > 0.0) l.trenutnoStanje.toDouble() / dailyConsumption else Double.POSITIVE_INFINITY
+
+                val isYellow = (l.trenutnoStanje <= 7) || (unitsPerDose >= 2 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
+
+                if (isYellow) {
+                    val price = l.cijena.replace(',', '.').toDoubleOrNull() ?: 0.0
+                    if (price > 0.0) totalCost += price
+                }
+            }
+            totalCost
+        }
+    }
+
     // Enhanced add with highlight animation
     val handleAddLijek: (Lijek) -> Unit = { newLijek ->
         val lijekWithId = newLijek.copy(id = idCounter++)
         lijekovi.add(lijekWithId)
         saveData()
+        touchSnapshot()
         showAddLijek = false
 
         scope.launch {
@@ -1069,6 +1192,7 @@ fun PocetniEkran(context: Context? = null) {
                 lijekovi.clear()
                 lijekovi.addAll(loadedLijekovi)
                 idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
+                touchSnapshot()
             }
         }
     }
@@ -1096,6 +1220,7 @@ fun PocetniEkran(context: Context? = null) {
                         lijekovi.addAll(importedLijekovi)
                         idCounter = (importedLijekovi.maxOfOrNull { lijek -> lijek.id } ?: -1) + 1
                         saveData()
+                        touchSnapshot()
                         currentScreen = "home"
                         showMessage = "✅ Podaci uspješno importirani!\n\nUčitano ${importedLijekovi.size} lijekova."
                     } else {
@@ -1299,6 +1424,7 @@ fun PocetniEkran(context: Context? = null) {
                 "home" -> {
                     HomeScreen(
                         lijekovi = lijekovi,
+                        reorderTotal = reorderTotal,
                         onTake = { lijek, dobaDana ->
                             val grupa = when (dobaDana) {
                                 DobaDana.JUTRO -> DobaDana.JUTRO
@@ -1307,13 +1433,37 @@ fun PocetniEkran(context: Context? = null) {
                                 else -> null
                             }
                             if (grupa != null && lijek.mozeUzeti(grupa)) {
-                                lijekovi[lijekovi.indexOf(lijek)] = lijek.uzmiLijek(grupa)
-                                saveData()
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        "Uspješno uzeto: ${lijek.naziv}",
-                                        duration = SnackbarDuration.Short
-                                    )
+                                val idx = lijekovi.indexOf(lijek)
+                                if (idx != -1) {
+                                    // Save previous for undo
+                                    val previous = lijekovi[idx]
+                                    val updated = previous.uzmiLijek(grupa)
+                                    lijekovi[idx] = updated
+                                    saveData()
+                                    touchSnapshot()
+
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Uspješno uzeto: ${lijek.naziv}",
+                                            actionLabel = "Poništi",
+                                            duration = SnackbarDuration.Short
+                                        )
+
+                                        if (result == SnackbarResult.ActionPerformed) {
+                                            // restore previous state
+                                            val restoreIdx = lijekovi.indexOfFirst { it.id == previous.id }
+                                            if (restoreIdx != -1) {
+                                                lijekovi[restoreIdx] = previous
+                                                saveData()
+                                                touchSnapshot()
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Notify user that therapy was taken (use available context and lijek name)
+                                context?.let { ctx ->
+                                    NotificationScheduler.sendTherapyTakenNotification(ctx, lijek.naziv)
                                 }
                             } else {
                                 scope.launch {
@@ -1325,8 +1475,7 @@ fun PocetniEkran(context: Context? = null) {
                             }
                         },
                         onEdit = { lijek -> editLijek = lijek },
-                        modifier = Modifier.padding(paddingValues)
-                    )
+                        modifier = Modifier.padding(paddingValues))
                 }
                 "statistics" -> {
                     StatisticsScreen(
@@ -1395,6 +1544,7 @@ fun PocetniEkran(context: Context? = null) {
                  if (index != -1) {
                      lijekovi[index] = updatedLijek
                      saveData()
+                     touchSnapshot()
 
                      scope.launch {
                          snackbarHostState.showSnackbar(
@@ -1404,36 +1554,37 @@ fun PocetniEkran(context: Context? = null) {
                      }
                  }
                  editLijek = null
-             }
-            , onDelete = { deletedLijek ->
-                val idx = lijekovi.indexOfFirst { it.id == deletedLijek.id }
-                if (idx != -1) {
-                    // Remove and keep a reference to the removed item so we can restore it on Undo
-                    val removed = lijekovi.removeAt(idx)
-                    saveData()
-                    scope.launch {
-                        // Show snackbar with 'Poništi' action to allow undoing the delete
-                        val result = snackbarHostState.showSnackbar(
-                            message = "Lijek '${removed.naziv}' obrisan",
-                            actionLabel = "Poništi",
-                            duration = SnackbarDuration.Short
-                        )
+             },
+             onDelete = { deletedLijek ->
+                 val idx = lijekovi.indexOfFirst { it.id == deletedLijek.id }
+                 if (idx != -1) {
+                     // Remove and keep a reference to the removed item so we can restore it on Undo
+                     val removed = lijekovi.removeAt(idx)
+                     saveData()
+                     touchSnapshot()
+                     scope.launch {
+                         // Show snackbar with 'Poništi' action to allow undoing the delete
+                         val result = snackbarHostState.showSnackbar(
+                             message = "Lijek '${removed.naziv}' obrisan",
+                             actionLabel = "Poništi",
+                             duration = SnackbarDuration.Short
+                         )
 
-                        if (result == SnackbarResult.ActionPerformed) {
-                            // Reinsert the removed item at its previous index (or end if index out of range)
-                            val insertIndex = if (idx <= lijekovi.size) idx else lijekovi.size
-                            lijekovi.add(insertIndex, removed)
-                            saveData()
-                        }
-                    }
-                }
-                editLijek = null
-            }
-        )
+                         if (result == SnackbarResult.ActionPerformed) {
+                             // Reinsert the removed item at its previous index (or end if index out of range)
+                             val insertIndex = if (idx <= lijekovi.size) idx else lijekovi.size
+                             lijekovi.add(insertIndex, removed)
+                             saveData()
+                             touchSnapshot()
+                         }
+                     }
+                 }
+                 editLijek = null
+             }
+         )
      }
 }
 
-// Enhanced HomeScreen with new animated components
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnimatedFAB(
@@ -1466,12 +1617,15 @@ fun AnimatedFAB(
 @Composable
 fun HomeScreen(
     lijekovi: List<Lijek>,
+    reorderTotal: Double,
     onTake: (Lijek, DobaDana?) -> Unit,
     onEdit: (Lijek) -> Unit,
     modifier: Modifier = Modifier,
     scaffoldPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val localContext = LocalContext.current
+
+
     val grupe = listOf(
         DobaDana.JUTRO to "Jutro",
         DobaDana.POPODNE to "Podne",
@@ -1489,6 +1643,22 @@ fun HomeScreen(
                 + 16.dp // internal margin
         )
     ) {
+        // show reorder summary as first item
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    val fmt = { v: Double -> String.format(java.util.Locale.getDefault(), "%.2f €", v).replace('.', ',') }
+                    Text("🛒 Ukupno za narudžbu: ${fmt(reorderTotal)}", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
         grupe.forEach { (doba, naziv) ->
             val grupaLijekova = lijekovi.filter {
                 when (doba) {
@@ -1536,9 +1706,7 @@ fun HomeScreen(
                                 }
                                 skipSnackbarOnTakeAll.value = false
 
-                                // If at least one medicine was taken, send a single aggregated notification
                                 if (takenCount > 0) {
-                                    // Send localized label name (Jutro/Podne/Večer)
                                     NotificationScheduler.sendTherapyTakenNotification(localContext, naziv)
                                 }
                             },
@@ -1567,10 +1735,8 @@ fun HomeScreen(
                 }
             }
         }
-        // Dodaj "Intervalno" grupu za intervalne lijekove
-        val intervalniLijekovi = lijekovi.filter {
-            it.tipUzimanja == TipUzimanja.INTERVALNO
-        }
+
+        val intervalniLijekovi = lijekovi.filter { it.tipUzimanja == TipUzimanja.INTERVALNO }
         if (intervalniLijekovi.isNotEmpty()) {
             item {
                 Row(
@@ -1606,10 +1772,8 @@ fun HomeScreen(
                 }
             }
         }
-        // Dodaj "Ostali" grupu za lijekove bez termina i koji nisu intervalni
-        val ostaliLijekovi = lijekovi.filter {
-            !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja != TipUzimanja.INTERVALNO
-        }
+
+        val ostaliLijekovi = lijekovi.filter { !it.jutro && !it.popodne && !it.vecer && it.tipUzimanja != TipUzimanja.INTERVALNO }
         if (ostaliLijekovi.isNotEmpty()) {
             item {
                 Row(

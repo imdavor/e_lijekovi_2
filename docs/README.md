@@ -61,16 +61,27 @@ Prioritet 1 - Osnovno
 - [ ] Search / Filter / Sortiranje
 - [ ] Notifikacije za uzimanje (WorkManager, snooze, akcije)
 
-Prioritet 2 - UI/UX
+Prioritet 1 - Implementirano / popravci (trenutno)
+- [x] Postavke su sada scrollable (fiks u `SettingsScreen`) — korisnički problem: ekran nije bio skrolabilan
+- [x] Privremeno rješenje za ponoćni reset (`MidnightResetReceiver`): prilikom resetiranja brišu se `dozeZaDan` i zapisi iz `complianceHistory` koji su datirani na "danas" se premještaju na "jučer" kako bi se kartice odblokirale (smanjuje broj hitnih bugfixa).  
+  Napomena: ovo je quick-fix koji mijenja povijest; vidjeti Prioritet 2 — bolja / transparentnija strategija.
+
+Prioritet 2 - UX/behavioral fixes (preporučeno nakon stabilizacije)
+- [ ] Implementirati timestamp-based reset (preporuka): ne mijenjati `complianceHistory` datum, nego koristiti `last_daily_reset` i/ili `createdAtMillis` u zapisima kako bi se korektno odlučivalo što pripada današnjem danu. Ovo čuva točan zapis kada je korisnik kliknuo, a istovremeno omogućava ispravno otključavanje kartica.
+- [ ] Podrška za točan reset u 00:00: istražiti i/ili tražiti od korisnika permission `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` ili alternativne mehanizme (WorkManager + exact alarm UX). Trenutno `NotificationScheduler` pokušava `setExactAndAllowWhileIdle` i pada na inexact `set()` ako nema permission.
+- [ ] Poništi/Povratak uzimanja (ako je slučajno kliknuto): trenutno postoji Undo snackbar za pojedinačne operacije (na razini UI) — razmotriti i eksplicitnu opciju u detaljima lijeka za poništavanje zadnjeg uzimanja.
+- [ ] Instant update cijene u dialogu (opcija A): osigurati da promjena cijene u edit dijalogu odmah ažurira `Ukupno za narudžbu` i sve izračune bez potrebe za prelaskom na drugi ekran.
+
+Prioritet 3 - UI/UX
 - [ ] Animacije, Dark mode toggle, Splash screen
 
-Prioritet 3 - Napredne funkcije
+Prioritet 4 - Napredne funkcije
 - [ ] Kalendar prikaz, statistike, slike lijekova, kategorije
 
-Prioritet 4 - Sigurnost i stabilnost
+Prioritet 5 - Sigurnost i stabilnost
 - [ ] Error handling, logging, cloud backup
 
-Prioritet 5 - Testiranje
+Prioritet 6 - Testiranje
 - [ ] Unit, Compose UI i integracijski testovi
 
 ---
@@ -89,4 +100,3 @@ Prioritet 5 - Testiranje
 ---
 
 *Zadnja izmjena: 28. Listopad 2025.*
-

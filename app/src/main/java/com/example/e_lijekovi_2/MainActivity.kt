@@ -1,19 +1,3 @@
-@file:Suppress(
-    "UNUSED_VARIABLE",
-    "UNUSED_VALUE",
-    "ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE",
-    "UNUSED_PARAMETER",
-    "UNUSED_ANONYMOUS_PARAMETER",
-    "UNUSED_EXPRESSION",
-    "UNREACHABLE_CODE",
-    "RedundantUnitReturnType",
-    "RedundantVisibilityModifier",
-    "RemoveExplicitTypeArguments",
-    "CAST_NEVER_SUCCEEDS",
-    "NON_EXHAUSTIVE_WHEN",
-    "SENSELESS_COMPARISON"
-)
-
 package com.example.e_lijekovi_2
 
 import android.app.NotificationChannel
@@ -885,11 +869,9 @@ fun StatisticsScreen(
                                 val lastVal = lastPair.second.replace(',', '.').toDoubleOrNull()
                                 val prevVal = prevPair.second.replace(',', '.').toDoubleOrNull()
                                 if (lastVal != null && prevVal != null) {
--                                    if (lastVal > prevVal) { color = Color.Red; arrow = "↑" }
--                                    else if (lastVal < prevVal) { color = Color(0xFF2E7D32); arrow = "↓" }
-+                                    if (lastVal > prevVal) { color = Color.Red; arrow = "up" }
-+                                    else if (lastVal < prevVal) { color = Color(0xFF2E7D32); arrow = "down" }
-                                 }
+                                    if (lastVal > prevVal) { color = Color.Red; arrow = "up" }
+                                    else if (lastVal < prevVal) { color = Color(0xFF2E7D32); arrow = "down" }
+                                }
                              }
                          }
 
@@ -1669,39 +1651,21 @@ fun PocetniEkran(context: Context? = null) {
 
                  val index = lijekovi.indexOfFirst { it.id == lijek.id }
                  if (index != -1) {
-                     // When editing, if price changed, append to cijenaHistorija
+                     // When editing, preserve previous price history and append a new entry only if price changed
                      val prev = lijekovi[index]
-                     var updatedWithHistory = updatedLijek
-                     if (prev.cijena != updatedLijek.cijena) {
+                     val updatedWithHistory = if (prev.cijena != updatedLijek.cijena) {
                          val nowStamp = IntervalnoUzimanje.createDateTimeFormat().format(Date())
-                         updatedWithHistory = if (updatedLijek.cijena.isNotBlank()) {
-                            updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija + PriceEntry(timestamp = nowStamp, price = updatedLijek.cijena))
-                        } else {
-                            // If price cleared, don't append empty entry; just preserve history and clear cijena field
-                            updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija)
-                        }
-                     } else {
-                         // preserve previous history if unchanged
-                         val updatedWithHistory = updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija)
-
-                         // assign below
-
-                         // replace outer variable usage by setting lijekovi[index] below
-                         lijekovi[index] = updatedWithHistory
-                         saveData()
-                         touchSnapshot()
-
-                         scope.launch {
-                             snackbarHostState.showSnackbar(
-                                 message = "Lijek '${updatedLijek.naziv}' ažuriran",
-                                 duration = SnackbarDuration.Short
-                             )
+                         if (updatedLijek.cijena.isNotBlank()) {
+                             updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija + PriceEntry(timestamp = nowStamp, price = updatedLijek.cijena))
+                         } else {
+                             // price cleared -> keep previous history
+                             updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija)
                          }
-                         editLijek = null
-                         return@LijekDialog
+                     } else {
+                         // unchanged price -> keep existing history
+                         updatedLijek.copy(cijenaHistorija = prev.cijenaHistorija)
                      }
 
-                     // when we reach here, updatedWithHistory is defined in the if branch
                      lijekovi[index] = updatedWithHistory
                      saveData()
                      touchSnapshot()

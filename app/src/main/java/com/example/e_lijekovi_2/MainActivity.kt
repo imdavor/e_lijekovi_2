@@ -999,6 +999,38 @@ fun SettingsScreen(
             Text("Upravljanje podacima")
         }
 
+        // Quick reset button for testing midnight reset logic
+        val settingsContext = LocalContext.current
+        Button(
+            onClick = {
+                try {
+                    val loaded = LijekoviDataManager.loadFromLocalStorage(settingsContext)
+                    if (loaded != null) {
+                        var changed = false
+                        val cleared = loaded.map { l -> if (l.dozeZaDan.isNotEmpty()) { changed = true; l.copy(dozeZaDan = mutableMapOf()) } else l }
+                        if (changed) {
+                            LijekoviDataManager.saveToLocalStorage(settingsContext, cleared)
+                        }
+                        // update last reset date
+                        val prefs = settingsContext.getSharedPreferences("e_lijekovi_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().putString("last_daily_reset", IntervalnoUzimanje.createDateFormat().format(Date())).apply()
+                        // broadcast so running UI reloads
+                        val b = Intent("com.example.e_lijekovi_2.ACTION_PER_DAY_FLAGS_RESET")
+                        settingsContext.sendBroadcast(b)
+                        android.widget.Toast.makeText(settingsContext, if (changed) "Dnevni flagovi resetirani" else "Nema flagova za resetiranje", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.widget.Toast.makeText(settingsContext, "Nema spremljenih lijekova.", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(settingsContext, "Greška pri resetiranju: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+        ) {
+            Text("Reset dnevnih flagova (test)")
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1296,15 +1328,92 @@ fun PocetniEkran(context: Context? = null) {
 
     LaunchedEffect(Unit) {
         context?.let { ctx ->
-            val loadedLijekovi = LijekoviDataManager.loadFromLocalStorage(ctx)
-            if (loadedLijekovi != null && loadedLijekovi.isNotEmpty()) {
-                lijekovi.clear()
-                lijekovi.addAll(loadedLijekovi)
-                idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
-                touchSnapshot()
+            var loadedLijekovi = LijekoviDataManager.loadFromLocalStorage(ctx)
+            // Ensure per-day flags are reset at least once per day. If MidnightResetReceiver didn't run
+            // (e.g., device was off), we apply the reset lazily here.
+            try {
+                val prefs = ctx.getSharedPreferences("e_lijekovi_prefs", Context.MODE_PRIVATE)
+                val lastReset = prefs.getString("last_daily_reset", null)
+                val today = IntervalnoUzimanje.createDateFormat().format(Date())
+                if (lastReset == null || lastReset != today) {
+                    // perform lazy reset of dozeZaDan
+                    if (loadedLijekovi != null) {
+                        var changed = false
+                        val ml = loadedLijekovi.map { l ->
+                            if (l.dozeZaDan.isNotEmpty()) { changed = true; l.copy(dozeZaDan = mutableMapOf()) } else l
+                        }
+                        if (changed) {
+                            LijekoviDataManager.saveToLocalStorage(ctx, ml)
+                            prefs.edit().putString("last_daily_reset", today).apply()
+                            loadedLijekovi = ml
+                        }
+                    }
+                }
+
+                if (loadedLijekovi != null && loadedLijekovi.isNotEmpty()) {
+                    lijekovi.clear()
+                    lijekovi.addAll(loadedLijekovi)
+                    idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
+                    touchSnapshot()
+                }
+            } catch (e: Exception) {
+                // fallback: just load as-is
+                if (loadedLijekovi != null && loadedLijekovi.isNotEmpty()) {
+                    lijekovi.clear()
+                    lijekovi.addAll(loadedLijekovi)
+                    idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
+                    touchSnapshot()
+                }
+            }
+         }
+     }
+
+    // Listen for midnight reset broadcasts so the running app process can reload the stored data
+    val localCtx = LocalContext.current
+    DisposableEffect(localCtx) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+                try {
+                    val reloaded = LijekoviDataManager.loadFromLocalStorage(localCtx)
+                    if (reloaded != null) {
+                        lijekovi.clear()
+                        lijekovi.addAll(reloaded)
+                        idCounter = (reloaded.maxOfOrNull { it.id } ?: -1) + 1
+                        touchSnapshot()
+                        // optional: show small snackbar
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Dnevni flagovi su resetirani")
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("PocetniEkran", "Greška pri reloadu nakon reset: ${e.message}")
+                }
             }
         }
-    }
+
+        val filter = android.content.IntentFilter("com.example.e_lijekovi_2.ACTION_PER_DAY_FLAGS_RESET")
+        // On Android 14+ the registerReceiver overload requires explicit exported/not-exported flag
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                // Use explicit overload (permission = null, scheduler = null, flags)
+                try {
+                    localCtx.registerReceiver(receiver, filter, null, null, android.content.Context.RECEIVER_EXPORTED)
+                } catch (t: NoSuchMethodError) {
+                    // Fallback if running against an SDK that doesn't expose the overload at runtime
+                    localCtx.registerReceiver(receiver, filter)
+                }
+            } else {
+                localCtx.registerReceiver(receiver, filter)
+            }
+        } catch (e: Exception) {
+             // Fallback to safe registration; log the issue
+             android.util.Log.w("PocetniEkran", "registerReceiver fallback due to: ${e.message}")
+             try { localCtx.registerReceiver(receiver, filter) } catch (_: Exception) {}
+         }
+         onDispose {
+             try { localCtx.unregisterReceiver(receiver) } catch (_: Exception) {}
+         }
+     }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")

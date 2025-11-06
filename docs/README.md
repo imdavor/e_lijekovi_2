@@ -99,4 +99,4 @@ Prioritet 6 - Testiranje
 
 ---
 
-*Zadnja izmjena: 28. Listopad 2025.*
+*Zadnja izmjena: 05. Studeni 2025.*

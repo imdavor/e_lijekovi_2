@@ -835,7 +835,7 @@ fun StatisticsScreen(
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Trenutna cijena", fontWeight = FontWeight.Bold)
                 Text(
-                    "Legenda: ↑ crveno = poskupjelo ovaj mjesec, ↓ zeleno = pojeftinilo ovaj mjesec",
+                    "Legenda: ↑ crveno = up , ↓ zeleno = down",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 6.dp)

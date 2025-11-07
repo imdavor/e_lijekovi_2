@@ -1287,7 +1287,8 @@ fun PocetniEkran(context: Context? = null) {
             val dailyConsumption = unitsPerDose * dosesPerDay
             val daysRemaining = if (dailyConsumption > 0.0) l.trenutnoStanje.toDouble() / dailyConsumption else Double.POSITIVE_INFINITY
 
-            val isYellow = (l.trenutnoStanje <= 7) || (unitsPerDose >= 2 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
+            // Fix: use dosesPerDay (number of doses per day) when applying the "<=14 for 2x/day" heuristic
+            val isYellow = (l.trenutnoStanje <= 7) || (dosesPerDay >= 2.0 && l.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
 
             if (isYellow) {
                 val price = l.cijena.replace(',', '.').toDoubleOrNull() ?: 0.0

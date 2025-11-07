@@ -185,7 +185,28 @@ fun LijekCard(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (lijek.trenutnoStanje <= 7) Color(0xFFFFF59D) else MaterialTheme.colorScheme.surface
+            containerColor = run {
+                // parse unitsPerDose from `doza` (first integer found), default 1
+                val unitsPerDose = lijek.doza.trim().let { d -> Regex("\\d+").find(d)?.value?.toIntOrNull() ?: 1 }
+
+                val dosesPerDay = when (lijek.tipUzimanja) {
+                    TipUzimanja.STANDARDNO -> {
+                        val stdTimes = listOf(lijek.jutro, lijek.popodne, lijek.vecer).count { it }
+                        if (stdTimes > 0) stdTimes.toDouble() else 1.0
+                    }
+                    TipUzimanja.INTERVALNO -> {
+                        val interval = lijek.intervalnoUzimanje?.intervalSati ?: 0
+                        if (interval > 0) 24.0 / interval else 1.0
+                    }
+                }
+
+                val dailyConsumption = unitsPerDose * dosesPerDay
+                val daysRemaining = if (dailyConsumption > 0.0) lijek.trenutnoStanje.toDouble() / dailyConsumption else Double.POSITIVE_INFINITY
+
+                val isYellow = (lijek.trenutnoStanje <= 7) || (dosesPerDay >= 2.0 && lijek.trenutnoStanje <= 14) || (daysRemaining <= 7.0)
+
+                if (isYellow) Color(0xFFFFF59D) else MaterialTheme.colorScheme.surface
+            }
         )
     ) {
         Row(

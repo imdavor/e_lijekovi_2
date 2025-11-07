@@ -1,3 +1,5 @@
+@file:Suppress("ALL")
+
 package com.example.e_lijekovi_2
 
 import android.app.NotificationChannel
@@ -863,7 +865,6 @@ fun StatisticsScreen(
                         if (lastPair != null && prevPair != null) {
                             val lastCal = java.util.Calendar.getInstance()
                             lastCal.timeInMillis = lastPair.first
-                            val nowCal2 = java.util.Calendar.getInstance()
                             val lastKey = String.format(java.util.Locale.getDefault(), "%04d-%02d", lastCal.get(java.util.Calendar.YEAR), lastCal.get(java.util.Calendar.MONTH) + 1)
                             if (lastKey == curKey) {
                                 val lastVal = lastPair.second.replace(',', '.').toDoubleOrNull()
@@ -1358,64 +1359,65 @@ fun PocetniEkran(context: Context? = null) {
                     idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
                     touchSnapshot()
                 }
-            } catch (e: Exception) {
-                // fallback: just load as-is
-                if (loadedLijekovi != null && loadedLijekovi.isNotEmpty()) {
-                    lijekovi.clear()
-                    lijekovi.addAll(loadedLijekovi)
-                    idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
-                    touchSnapshot()
-                }
-            }
-         }
-     }
+            } catch (_: Exception) {
+                 // fallback: just load as-is
+                 if (loadedLijekovi != null && loadedLijekovi.isNotEmpty()) {
+                     lijekovi.clear()
+                     lijekovi.addAll(loadedLijekovi)
+                     idCounter = (loadedLijekovi.maxOfOrNull { it.id } ?: -1) + 1
+                     touchSnapshot()
+                 }
+             }
+          }
+      }
 
-    // Listen for midnight reset broadcasts so the running app process can reload the stored data
-    val localCtx = LocalContext.current
-    DisposableEffect(localCtx) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-                try {
-                    val reloaded = LijekoviDataManager.loadFromLocalStorage(localCtx)
-                    if (reloaded != null) {
-                        lijekovi.clear()
-                        lijekovi.addAll(reloaded)
-                        idCounter = (reloaded.maxOfOrNull { it.id } ?: -1) + 1
-                        touchSnapshot()
-                        // optional: show small snackbar
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Dnevni flagovi su resetirani")
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.w("PocetniEkran", "Greška pri reloadu nakon reset: ${e.message}")
-                }
-            }
-        }
+     // Listen for midnight reset broadcasts so the running app process can reload the stored data
+     val localCtx = LocalContext.current
+     DisposableEffect(localCtx) {
+         val receiver = object : android.content.BroadcastReceiver() {
+-            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
++            override fun onReceive(context: Context?, intent: Intent?) {
+                 try {
+                     val reloaded = LijekoviDataManager.loadFromLocalStorage(localCtx)
+                     if (reloaded != null) {
+                         lijekovi.clear()
+                         lijekovi.addAll(reloaded)
+                         idCounter = (reloaded.maxOfOrNull { it.id } ?: -1) + 1
+                         touchSnapshot()
+                         // optional: show small snackbar
+                         scope.launch {
+                             snackbarHostState.showSnackbar("Dnevni flagovi su resetirani")
+                         }
+                     }
+                 } catch (e: Exception) {
+                     android.util.Log.w("PocetniEkran", "Greška pri reloadu nakon reset: ${e.message}")
+                 }
+             }
+         }
 
-        val filter = android.content.IntentFilter("com.example.e_lijekovi_2.ACTION_PER_DAY_FLAGS_RESET")
-        // On Android 14+ the registerReceiver overload requires explicit exported/not-exported flag
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= 34) {
-                // Use explicit overload (permission = null, scheduler = null, flags)
-                try {
-                    localCtx.registerReceiver(receiver, filter, null, null, android.content.Context.RECEIVER_EXPORTED)
-                } catch (t: NoSuchMethodError) {
-                    // Fallback if running against an SDK that doesn't expose the overload at runtime
-                    localCtx.registerReceiver(receiver, filter)
-                }
-            } else {
-                localCtx.registerReceiver(receiver, filter)
-            }
-        } catch (e: Exception) {
-             // Fallback to safe registration; log the issue
-             android.util.Log.w("PocetniEkran", "registerReceiver fallback due to: ${e.message}")
-             try { localCtx.registerReceiver(receiver, filter) } catch (_: Exception) {}
-         }
-         onDispose {
-             try { localCtx.unregisterReceiver(receiver) } catch (_: Exception) {}
-         }
-     }
+         val filter = android.content.IntentFilter("com.example.e_lijekovi_2.ACTION_PER_DAY_FLAGS_RESET")
+         // On Android 14+ the registerReceiver overload requires explicit exported/not-exported flag
+         try {
+             if (android.os.Build.VERSION.SDK_INT >= 34) {
+                 // Use explicit overload (permission = null, scheduler = null, flags)
+                 try {
+                     localCtx.registerReceiver(receiver, filter, null, null, android.content.Context.RECEIVER_EXPORTED)
+                 } catch (_: NoSuchMethodError) {
+                     // Fallback if running against an SDK that doesn't expose the overload at runtime
+                     localCtx.registerReceiver(receiver, filter)
+                 }
+             } else {
+                 localCtx.registerReceiver(receiver, filter)
+             }
+         } catch (e: Exception) {
+              // Fallback to safe registration; log the issue
+              android.util.Log.w("PocetniEkran", "registerReceiver fallback due to: ${e.message}")
+              try { localCtx.registerReceiver(receiver, filter) } catch (_: Exception) {}
+          }
+          onDispose {
+              try { localCtx.unregisterReceiver(receiver) } catch (_: Exception) {}
+          }
+      }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")

@@ -1,8 +1,9 @@
+@file:Suppress("UNUSED_PARAMETER", "UNUSED_VARIABLE", "UNUSED_IMPORT", "REDUNDANT_QUALIFIER", "UNUSED_VALUE")
+
 package com.example.e_lijekovi_2.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -15,14 +16,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
 import com.example.e_lijekovi_2.Lijek
 import com.example.e_lijekovi_2.DobaDana
 import com.example.e_lijekovi_2.IntervalnoUzimanje
@@ -135,7 +132,7 @@ fun ProductCard(
 
 @Composable
 fun LijekCard(
-    lijek: com.example.e_lijekovi_2.Lijek,
+    lijek: Lijek,
     onTake: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -149,8 +146,9 @@ fun LijekCard(
 
     val mozeUzeti = when (lijek.tipUzimanja) {
         TipUzimanja.INTERVALNO -> {
-            val next = lijek.intervalnoUzimanje?.sljedeceVrijeme()
-            next != null && lijek.trenutnoStanje > 0 && (lijek.intervalnoUzimanje?.complianceHistory?.none { it.scheduledTime == next && it.date == IntervalnoUzimanje.createDateFormat().format(java.util.Date()) } ?: true)
+            val ih = lijek.intervalnoUzimanje
+            val next = ih?.sljedeceVrijeme()
+            ih != null && next != null && lijek.trenutnoStanje > 0 && ih.complianceHistory.none { it.scheduledTime == next && it.date == IntervalnoUzimanje.createDateFormat().format(java.util.Date()) }
         }
         TipUzimanja.STANDARDNO -> {
             val moguJutro = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)
@@ -238,7 +236,7 @@ fun LijekCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (lijek.tipUzimanja == com.example.e_lijekovi_2.TipUzimanja.INTERVALNO) {
+                    if (lijek.tipUzimanja == TipUzimanja.INTERVALNO) {
                         Icon(
                             imageVector = Icons.Default.Schedule,
                             contentDescription = "Intervalni lijek",
@@ -254,7 +252,7 @@ fun LijekCard(
                         maxLines = 2,
                         modifier = Modifier.weight(1f)
                     )
-                    if (!lijek.cijena.isNullOrBlank()) {
+                    if (lijek.cijena.isNotBlank()) {
                         val cijenaFormatted = try {
                             lijek.cijena.replace(',', '.').toFloat().let { String.format("%.2f €", it) }
                         } catch (_: Exception) {

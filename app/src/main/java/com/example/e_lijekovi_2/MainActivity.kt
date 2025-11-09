@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.platform.LocalContext
 import com.example.e_lijekovi_2.ui.theme.E_lijekovi_2Theme
 import com.example.e_lijekovi_2.ui.components.LijekCard
@@ -486,7 +487,7 @@ fun IntervalnaTerapijaDialog(
     val prikazanoVrijeme = timeFormatter.format(pickedDate)
 
     // KARTICA: Intervalno uzimanje (dialog)
-    AlertDialog(onDismissRequest = onDismiss) {
+    Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -1375,8 +1376,7 @@ fun PocetniEkran(context: Context? = null) {
      val localCtx = LocalContext.current
      DisposableEffect(localCtx) {
          val receiver = object : android.content.BroadcastReceiver() {
--            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
-+            override fun onReceive(context: Context?, intent: Intent?) {
+            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
                  try {
                      val reloaded = LijekoviDataManager.loadFromLocalStorage(localCtx)
                      if (reloaded != null) {

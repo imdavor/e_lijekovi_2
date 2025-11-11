@@ -4,6 +4,7 @@ package com.example.e_lijekovi_2.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -20,9 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.e_lijekovi_2.Lijek
 import com.example.e_lijekovi_2.DobaDana
 import com.example.e_lijekovi_2.IntervalnoUzimanje
+import com.example.e_lijekovi_2.Lijek
 import com.example.e_lijekovi_2.TipUzimanja
 
 // Prilagođeni model proizvoda
@@ -145,14 +146,6 @@ fun LijekCard(
     }
     val complianceText = complianceStats?.let { "Uzimanje: ${it.complianceRate.toInt()}% u zadnjih 7 dana" } ?: ""
 
-    // Compute small dose-pattern like 1x0x1 for STANDARDNO drugs: 1 = scheduled && not yet taken today, 0 = not scheduled or already taken
-    val dosePattern = if (lijek.tipUzimanja == TipUzimanja.STANDARDNO) {
-        val j = if (lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)) "1" else "0"
-        val p = if (lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)) "1" else "0"
-        val v = if (lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)) "1" else "0"
-        "${j}x${p}x${v}"
-    } else ""
-
     val mozeUzeti = when (lijek.tipUzimanja) {
         TipUzimanja.INTERVALNO -> {
             val ih = lijek.intervalnoUzimanje
@@ -241,13 +234,36 @@ fun LijekCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.size(32.dp)
                     )
-                    if (dosePattern.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = dosePattern,
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+                    // New: render three small circles instead of text like "1x0x1"
+                    if (lijek.tipUzimanja == TipUzimanja.STANDARDNO) {
+                        val activeJ = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)
+                        val activeP = lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)
+                        val activeV = lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val activeColor = Color(0xFF2E7D32) // green
+                            val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+
+                            Box(modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (activeJ) activeColor else inactiveColor))
+
+                            Box(modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (activeP) activeColor else inactiveColor))
+
+                            Box(modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (activeV) activeColor else inactiveColor))
+                        }
                     }
                 }
             }

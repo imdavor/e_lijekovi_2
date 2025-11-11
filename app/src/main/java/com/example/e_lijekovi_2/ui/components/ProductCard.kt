@@ -145,6 +145,14 @@ fun LijekCard(
     }
     val complianceText = complianceStats?.let { "Uzimanje: ${it.complianceRate.toInt()}% u zadnjih 7 dana" } ?: ""
 
+    // Compute small dose-pattern like 1x0x1 for STANDARDNO drugs: 1 = scheduled && not yet taken today, 0 = not scheduled or already taken
+    val dosePattern = if (lijek.tipUzimanja == TipUzimanja.STANDARDNO) {
+        val j = if (lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)) "1" else "0"
+        val p = if (lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)) "1" else "0"
+        val v = if (lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)) "1" else "0"
+        "${j}x${p}x${v}"
+    } else ""
+
     val mozeUzeti = when (lijek.tipUzimanja) {
         TipUzimanja.INTERVALNO -> {
             val ih = lijek.intervalnoUzimanje
@@ -221,13 +229,26 @@ fun LijekCard(
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                // Show icon and small dose pattern underneath to visually indicate which times are still available today
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Icon(
                         imageVector = Icons.Default.MedicalServices,
                         contentDescription = "Lijek ikona",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.size(32.dp)
                     )
+                    if (dosePattern.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = dosePattern,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(14.dp))

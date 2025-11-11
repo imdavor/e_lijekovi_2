@@ -136,7 +136,8 @@ fun LijekCard(
     onTake: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val jeUzet = lijek.jeUzetZaDanas()
+    // remove global jeUzet that hides per-dose availability; rely on mozeUzeti for each button enablement
+    // val jeUzet = lijek.jeUzetZaDanas()
     // restore compliance stats text
     val complianceStats = when (lijek.tipUzimanja) {
         TipUzimanja.INTERVALNO -> lijek.intervalnoUzimanje?.getComplianceStats(7)
@@ -151,10 +152,10 @@ fun LijekCard(
             ih != null && next != null && lijek.trenutnoStanje > 0 && ih.complianceHistory.none { it.scheduledTime == next && it.date == IntervalnoUzimanje.createDateFormat().format(java.util.Date()) }
         }
         TipUzimanja.STANDARDNO -> {
-            val moguJutro = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)
-            val moguPodne = lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)
-            val moguVecer = lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)
-            (moguJutro || moguPodne || moguVecer) && lijek.trenutnoStanje > 0
+            val moguJutro = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true) && lijek.trenutnoStanje > 0
+            val moguPodne = lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true) && lijek.trenutnoStanje > 0
+            val moguVecer = lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true) && lijek.trenutnoStanje > 0
+            (moguJutro || moguPodne || moguVecer)
         }
     }
 
@@ -305,7 +306,7 @@ fun LijekCard(
                     // Gumb desno
                     Button(
                         onClick = onTake,
-                        enabled = mozeUzeti && !jeUzet,
+                        enabled = mozeUzeti,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary

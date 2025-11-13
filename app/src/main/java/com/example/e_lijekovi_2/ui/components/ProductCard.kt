@@ -237,9 +237,10 @@ fun LijekCard(
 
                     // New: render three small circles instead of text like "1x0x1"
                     if (lijek.tipUzimanja == TipUzimanja.STANDARDNO) {
-                        val activeJ = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)
-                        val activeP = lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)
-                        val activeV = lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)
+                        // Indicator should always show schedule, not whether dose was taken.
+                        val activeJ = lijek.jutro
+                        val activeP = lijek.popodne
+                        val activeV = lijek.vecer
 
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(

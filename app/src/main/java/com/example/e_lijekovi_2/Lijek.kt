@@ -192,7 +192,7 @@ data class Lijek(
     val sortOrderVecer: Int = 0
 ) {
     // Provjeri je li neki lijek za danas već uzet
-    fun jeUzetZaDanas(): Boolean {
+    fun jeUzetZaDanas(dobaDana: DobaDana? = null): Boolean {
         return when (tipUzimanja) {
             TipUzimanja.INTERVALNO -> {
                 intervalnoUzimanje?.let { interval ->
@@ -201,9 +201,22 @@ data class Lijek(
                 } ?: false
             }
             TipUzimanja.STANDARDNO -> {
-                // Ako postoje zapisi u complianceHistory za današnji datum, smatra se da je lijek (ili barem jedna doza) uzet danas
                 val today = IntervalnoUzimanje.createDateFormat().format(Date())
-                complianceHistory.any { it.date == today && it.actualTime != null }
+                // If a specific time-of-day is requested, check scheduledTime/dozeZaDan for that doba
+                if (dobaDana != null) {
+                    val scheduled = when (dobaDana) {
+                        DobaDana.JUTRO -> vrijemeJutro
+                        DobaDana.POPODNE -> vrijemePopodne
+                        DobaDana.VECER -> vrijemeVecer
+                    }
+
+                    val takenByHistory = complianceHistory.any { it.date == today && it.scheduledTime == scheduled && it.actualTime != null }
+                    val takenByFlag = dozeZaDan[dobaDana] == true
+                    takenByHistory || takenByFlag
+                } else {
+                    // Backward-compatible: if no doba provided, return true if any dose taken today
+                    complianceHistory.any { it.date == today && it.actualTime != null }
+                }
             }
         }
     }

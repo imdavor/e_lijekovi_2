@@ -1930,13 +1930,13 @@ fun HomeScreen(
                             modifier = Modifier.padding(end = 12.dp)
                         )
                         Spacer(modifier = Modifier.weight(1f))
-                        val mozeUzetiNetko = grupaLijekova.any { it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0 }
+                        val mozeUzetiNetko = grupaLijekova.any { it.mozeUzeti(doba) && !it.jeUzetZaDanas(doba) && it.trenutnoStanje > 0 }
                         Button(
                             onClick = {
                                 skipSnackbarOnTakeAll.value = true
                                 var takenCount = 0
                                 grupaLijekova.forEach {
-                                    if (it.mozeUzeti(doba) && !it.jeUzetZaDanas() && it.trenutnoStanje > 0) {
+                                    if (it.mozeUzeti(doba) && !it.jeUzetZaDanas(doba) && it.trenutnoStanje > 0) {
                                         onTake(it, doba)
                                         takenCount++
                                     }

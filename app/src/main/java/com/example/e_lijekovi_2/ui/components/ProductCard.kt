@@ -4,6 +4,7 @@ package com.example.e_lijekovi_2.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -20,9 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.e_lijekovi_2.Lijek
 import com.example.e_lijekovi_2.DobaDana
 import com.example.e_lijekovi_2.IntervalnoUzimanje
+import com.example.e_lijekovi_2.Lijek
 import com.example.e_lijekovi_2.TipUzimanja
 
 // Prilagođeni model proizvoda
@@ -136,7 +137,8 @@ fun LijekCard(
     onTake: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val jeUzet = lijek.jeUzetZaDanas()
+    // remove global jeUzet that hides per-dose availability; rely on mozeUzeti for each button enablement
+    // val jeUzet = lijek.jeUzetZaDanas()
     // restore compliance stats text
     val complianceStats = when (lijek.tipUzimanja) {
         TipUzimanja.INTERVALNO -> lijek.intervalnoUzimanje?.getComplianceStats(7)
@@ -151,10 +153,10 @@ fun LijekCard(
             ih != null && next != null && lijek.trenutnoStanje > 0 && ih.complianceHistory.none { it.scheduledTime == next && it.date == IntervalnoUzimanje.createDateFormat().format(java.util.Date()) }
         }
         TipUzimanja.STANDARDNO -> {
-            val moguJutro = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true)
-            val moguPodne = lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true)
-            val moguVecer = lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true)
-            (moguJutro || moguPodne || moguVecer) && lijek.trenutnoStanje > 0
+            val moguJutro = lijek.jutro && (lijek.dozeZaDan[DobaDana.JUTRO] != true) && lijek.trenutnoStanje > 0
+            val moguPodne = lijek.popodne && (lijek.dozeZaDan[DobaDana.POPODNE] != true) && lijek.trenutnoStanje > 0
+            val moguVecer = lijek.vecer && (lijek.dozeZaDan[DobaDana.VECER] != true) && lijek.trenutnoStanje > 0
+            (moguJutro || moguPodne || moguVecer)
         }
     }
 
@@ -220,13 +222,50 @@ fun LijekCard(
                 shape = RoundedCornerShape(10.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                // Show icon and small dose pattern underneath to visually indicate which times are still available today
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Icon(
                         imageVector = Icons.Default.MedicalServices,
                         contentDescription = "Lijek ikona",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier.size(32.dp)
                     )
+
+                    // New: render three small circles instead of text like "1x0x1"
+                    if (lijek.tipUzimanja == TipUzimanja.STANDARDNO) {
+                        // Indicator should always show schedule, not whether dose was taken.
+                        val activeJ = lijek.jutro
+                        val activeP = lijek.popodne
+                        val activeV = lijek.vecer
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val activeColor = Color(0xFF2E7D32) // green
+                            val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+
+                            Box(modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (activeJ) activeColor else inactiveColor))
+
+                            Box(modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (activeP) activeColor else inactiveColor))
+
+                            Box(modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (activeV) activeColor else inactiveColor))
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(14.dp))
@@ -305,7 +344,7 @@ fun LijekCard(
                     // Gumb desno
                     Button(
                         onClick = onTake,
-                        enabled = mozeUzeti && !jeUzet,
+                        enabled = mozeUzeti,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
